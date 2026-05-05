@@ -3,9 +3,12 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CaseController;
-use App\Http\Controllers\Api\CaseSessionController;
-use App\Http\Controllers\Api\LawyerController;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+    use Spatie\Permission\Models\Role;
+
+
 
 
 
@@ -49,27 +52,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
-
-    /**
-     * ================== Case Routes ===================
-     */
-    Route::get('cases-overview', [CaseController::class , "overview"]);
+Route::middleware(['auth:sanctum', 'role:admin|avocato'])->group(function () {
     Route::apiResource('cases', CaseController::class);
-
-    /**
-     * ================== Case Session Routes ===================
-     */
-    Route::match(['put', 'post'], '/case-sessions/{id}', [CaseSessionController::class, 'update']);
-    Route::apiResource('/case-sessions', CaseSessionController::class);
-
-    /**
-     * ================== Case Session Routes ===================
-     */
-    Route::patch('lawyers/{id}/toggle-status', [LawyerController::class, 'toggleStatus']);
-    Route::get('lawyers/{id}/cases', [LawyerController::class, 'getLawyerCases']);
-    Route::apiResource('lawyers', LawyerController::class);
-
 });
 
 

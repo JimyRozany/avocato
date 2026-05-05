@@ -41,17 +41,23 @@ class User extends Authenticatable
      */
 
     public function casesCreated()
-{
-    return $this->hasMany(CaseModel::class, 'created_by');
-}
+    {
+        return $this->hasMany(CaseModel::class, 'created_by');
+    }
 
-public function casesAsLawyer()
-{
-    return $this->belongsToMany(CaseModel::class, 'case_lawyers', 'lawyer_id', 'case_id');
-}
+  
+    public function casesAsLawyer()
+    {
+        return $this->belongsToMany(
+            CaseModel::class,
+            'case_lawyers',
+            'lawyer_id',
+            'case_id'
+        )->withPivot('side')->withTimestamps();
+    }
 
-public function caseParticipations()
-{
-    return $this->hasMany(CaseParty::class);
-}
+    public function caseParticipations()
+    {
+        return $this->hasMany(CaseParty::class);
+    }
 }

@@ -7,10 +7,12 @@ use App\Http\Requests\StoreCaseRequest;
 use Illuminate\Http\Request;
 
 use App\Models\CaseModel;
+use App\Traits\ApiResponse;
 use Illuminate\Support\Facades\Auth;
 
 class CaseController extends Controller
 {
+    use ApiResponse ;
     // 🔹 عرض كل القضايا
     public function index()
     {
@@ -80,6 +82,27 @@ class CaseController extends Controller
 
         return response()->json([
             'message' => 'Case deleted successfully'
+        ]);
+    }
+
+
+   public function overview()
+    {
+        $cases = CaseModel::paginate(10);
+
+        $allCases = CaseModel::get();
+
+        $totalCases   = $allCases->count();
+        $openCases    = $allCases->where('status', 'open')->count();
+        $closeCases   = $allCases->where('status', 'close')->count();
+        $pendingCases = $allCases->where('status', 'pending')->count();
+
+        return $this->successResponse([
+            "cases" => $cases,
+            "totalCases" => $totalCases,
+            "openCases" => $openCases,
+            "closeCases" => $closeCases,
+            "pendingCases" => $pendingCases,
         ]);
     }
 

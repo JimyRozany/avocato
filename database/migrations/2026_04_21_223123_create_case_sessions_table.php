@@ -12,17 +12,17 @@ return new class extends Migration
     public function up(): void
     {
        Schema::create('case_sessions', function (Blueprint $table) {
-    $table->id();
+            $table->id();
 
-    $table->foreignId('case_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('case_id')->constrained()->cascadeOnDelete();
 
-    $table->date('session_date');
-    $table->string('decision')->nullable();
-    $table->text('notes')->nullable();
-    $table->date('next_session_date')->nullable();
+            $table->date('session_date');
+            $table->string('decision')->nullable();
+            $table->text('notes')->nullable();
+            $table->date('next_session_date')->nullable();
 
-    $table->timestamps();
-});
+            $table->timestamps();
+        });
     }
 
     /**

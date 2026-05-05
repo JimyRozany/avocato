@@ -27,20 +27,7 @@ return new class extends Migration
     $table->softDeletes();
 });
 
-/**
- * 'case_number
-'title
-'description
-'client_id
-'lawyer_id
-'case_type_id
-'court_id
-'opponent_id
-'status
-'filed_date
-'first_hearing_date
-'case_value
- */
+
     }
 
     /**
