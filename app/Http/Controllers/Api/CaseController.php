@@ -5,14 +5,16 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCaseRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\CaseModel;
 use App\Traits\ApiResponse;
+use App\Traits\HandleDocuments;
 use Illuminate\Support\Facades\Auth;
 
 class CaseController extends Controller
 {
-    use ApiResponse ;
+    use ApiResponse , HandleDocuments;
     // 🔹 عرض كل القضايا
     public function index()
     {
@@ -26,14 +28,64 @@ class CaseController extends Controller
             // 🔹 إنشاء قضية جديدة
         public function store(StoreCaseRequest $request)
         {
-            $data = $request->validated();
+            $data = $request->safe()->only([
+                'case_number', 'title', 'description', 'type', 'court_name', 'start_date'
+            ]);
             $data['created_by'] = auth()->id();
 
-            $case = CaseModel::create($data);
+            DB::beginTransaction();
+            try {
+                $case = CaseModel::create($data);
 
-            $case->parties()->createMany($request->parties);
+                $user = auth()->user();
 
-            return response()->json($case, 201);
+                if ($user->hasRole('avocato')) {
+
+                    $case->parties()->create([
+                        'user_id' => $request->client_id,
+                        'role_in_case' => $request->role_in_case ?? 'plaintiff',
+                    ]);
+                    $case->lawyers()->attach($user->id, ['side' => 'plaintiff']);
+
+                } elseif ($user->hasRole('client')) {
+                    $case->parties()->create([
+                        'user_id' => $user->id,
+                        'role_in_case' => $request->role_in_case ?? 'plaintiff',
+                    ]);
+                    $case->lawyers()->attach($request->lawyer_id, ['side' => $request->side ?? 'plaintiff']);
+
+                } else {
+                    if ($request->has('parties')) {
+                        $case->parties()->createMany($request->parties);
+                    }
+                    if ($request->has('lawyers')) {
+                        $lawyersData = [];
+                        foreach ($request->lawyers as $lawyer) {
+                            $lawyersData[$lawyer['lawyer_id']] = ['side' => $lawyer['side'] ?? null];
+                        }
+                        $case->lawyers()->attach($lawyersData);
+                    }
+                }
+
+                if ($request->hasFile('documents')) {
+                    $this->uploadDocuments(
+                        $request,
+                        $case->id,
+                        auth()->id()
+                    );
+                }
+
+                DB::commit();
+
+                return $this->successResponse(
+                    $case->load(['creator', 'parties', 'lawyers', 'documents']),
+                    'Created successfully',
+                    201
+                );
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return $this->errorResponse('Creation failed', 500, $e->getMessage());
+            }
         }
     // 🔹 عرض قضية واحدة
     public function show($id)

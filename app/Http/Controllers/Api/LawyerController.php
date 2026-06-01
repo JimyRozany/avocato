@@ -102,14 +102,14 @@ class LawyerController extends Controller
         $lawyer = User::role('avocato')->findOrFail($lawyerId);
 
         $cases = $lawyer->casesAsLawyer()
+            ->with(['creator', 'parties.user', 'sessions'])
             ->when($request->status, function ($q) use ($request) {
                 $q->where('status', $request->status);
             })
-            ->latest()
-            ->paginate(10);
+            ->latest()->get();
 
         return response()->json([
-            'lawyer' => $lawyer->only(['id', 'name']),
+            'lawyer' => $lawyer->only(['id', 'name', 'email', 'mobile', 'is_active']),
             'cases'  => $cases
         ]);
     }

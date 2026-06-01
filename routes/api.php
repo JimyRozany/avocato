@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CaseController;
 use App\Http\Controllers\Api\CaseSessionController;
 use App\Http\Controllers\Api\LawyerController;
+use App\Http\Controllers\Api\LegalController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -17,38 +18,22 @@ Route::post('login', [AuthController::class , 'login']);
 // ---------------- protected routes ------------- 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout',[AuthController::class , 'logout']);
-    Route::get('me',[AuthController::class , 'me']); // get user info 
+    Route::get('me',[AuthController::class , 'me']);
    /**
     * ============== Client Routes ============= (Role Admin )
     */
      Route::middleware('role:admin')->group(function () {
         Route::apiResource('clients', ClientController::class);
     });
-/**
- * =================== Case Routes =============
- */
-// Route::middleware(['role:admin|avocato'])->group(function () {
-//     Route::apiResource('cases', CaseController::class);
-// });
-    
+
 });
 
+// ============= Client can create a case =============
+Route::middleware(['auth:api', 'role:client'])->group(function () {
+    Route::post('cases', [CaseController::class, 'store']);
+});
 
-
-// Route::middleware('auth:sanctum')->get("test-role", function (Request $request) {
-
-
-//     $user = $request->user(); 
-//     if($user->hasRole("admin"))
-//         return response()->json(["data" => "is admin" ], 200);
-    
-//     return response()->json(["data" => "error" ], 200);
-
-// });
-
-
-
-
+// ============= Admin & Avocato routes =============
 Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
 
     /**
@@ -64,20 +49,15 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
     Route::apiResource('/case-sessions', CaseSessionController::class);
 
     /**
-     * ================== Case Session Routes ===================
+     * ================== Lawyer Routes ===================
      */
     Route::patch('lawyers/{id}/toggle-status', [LawyerController::class, 'toggleStatus']);
     Route::get('lawyers/{id}/cases', [LawyerController::class, 'getLawyerCases']);
     Route::apiResource('lawyers', LawyerController::class);
 
+    /**
+     * ================== Legal Routes ===================
+     */
+    Route::apiResource('legals', LegalController::class);
+
 });
-
-
-// Route::get("update-roles",function(){
-
-
-
-// Role::where('name', 'admin')->update(['guard_name' => 'sanctum']);
-// Role::where('name', 'avocato')->update(['guard_name' => 'sanctum']);
-// Role::where('name', 'client')->update(['guard_name' => 'sanctum']);
-// });
