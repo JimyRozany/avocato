@@ -72,6 +72,8 @@ app/
 │   │   │   ├── ClientController.php        # ⚡ إدارة العملاء (list/show فقط)
 │   │   │   ├── LawyerController.php        # ⚡ إدارة المحامين (CRUD كامل)
 │   │   │   ├── LegalController.php         # ⚡ إدارة القوانين (CRUD كامل)
+│   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
+│   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
 │   │   │   └── CaseController_.php         # ❌ ملف قديم - غير مستخدم
 │   │   └── Controller.php                  # الـ Base Controller
 │   └── Requests/
@@ -84,7 +86,9 @@ app/
 │   ├── Document.php                        # المستندات
 │   ├── Judgment.php                        # الأحكام القضائية
 │   ├── Payment.php                         # المدفوعات
-│   └── Legal.php                           # القوانين (Legal)
+│   ├── Legal.php                           # القوانين (Legal)
+│   ├── LawyerDocument.php                  # شهادات ومستندات المحامي
+│   └── WarningHistory.php                  # إنذارات المحامي
 ├── Providers/
 │   └── AppServiceProvider.php
 └── Traits/
@@ -100,7 +104,7 @@ config/
 └── ...
 
 database/
-├── migrations/                             # 13 ملف هجرة (جميع الجداول)
+├── migrations/                             # 16 ملف هجرة (جميع الجداول)
 ├── seeders/
 │   ├── DatabaseSeeder.php
 │   ├── AdminUserSeeder.php                 # ✅ بذور المستخدمين والأدوار
@@ -123,7 +127,7 @@ tests/
 
 ## 🗃️ قاعدة البيانات والنماذج (Models)
 
-النظام يحتوي على **8 نماذج** و **13 جدولاً** في قاعدة البيانات:
+النظام يحتوي على **10 نماذج** و **16 جدولاً** في قاعدة البيانات:
 
 ### 1. User (المستخدمون) - `users`
 | الحقل | النوع | الوصف |
@@ -136,7 +140,11 @@ tests/
 | type | string | نوع المستخدم |
 | is_active | boolean | نشط/غير نشط |
 | status | string | الحالة |
-| rate | decimal | السعر/التقييم |
+| rate | integer | التقييم (يُعطى عشوائياً عند إنشاء محامٍ جديد) |
+| bar_association_number | string | رقم نقابة المحامين (خاص بالمحامي) |
+| office_location | string | موقع المكتب (خاص بالمحامي) |
+| years_of_experience | integer | سنوات الخبرة (خاص بالمحامي) |
+| specialty | string | التخصص (خاص بالمحامي) |
 
 **العلاقات:**
 - `casesCreated()` - القضايا التي أنشأها
@@ -151,7 +159,7 @@ tests/
 | title | string | عنوان القضية |
 | description | text | وصف القضية |
 | type | string | نوع القضية |
-| status | enum | الحالة (open/close/pending) |
+| status | string | الحالة (pending/active/suspended/flagged/closed) - default: pending |
 | court_name | string | اسم المحكمة |
 | start_date | date | تاريخ البدء |
 | created_by | FK | منشئ القضية (مستخدم) |
@@ -216,6 +224,27 @@ tests/
 | rule_number | string | رقم القاعدة (unique) |
 | rule_description | text | وصف القاعدة |
 
+### 9. LawyerDocument (ملفات المحامي) - `lawyer_documents`
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| id | bigint | المفتاح الأساسي |
+| user_id | FK | معرف المحامي (users) |
+| title | string | عنوان الملف/الشهادة |
+| type | string | النوع (شهادة، رخصة، ...) |
+| file_path | string | مسار الملف |
+| description | text | وصف |
+
+### 10. WarningHistory (إنذارات المحامي) - `warning_histories`
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| id | bigint | المفتاح الأساسي |
+| lawyer_id | FK `users` | المحامي الموجه إليه الإنذار |
+| warning_id | string | رقم الإنذار الفريد (auto: WRN-0001) |
+| reason | text | سبب الإنذار |
+| sent_by | FK `users` | من أصدر الإنذار |
+| date | date | تاريخ الإنذار |
+| status | string | الحالة (pending/active/resolved) |
+
 ---
 
 ## 📊 حالة الميزات (Completed / In Progress / Not Started)
@@ -239,6 +268,12 @@ tests/
 | **ربط المحامين بالقضية** | ربط المحامين (lawyers) تلقائياً بجدول `case_lawyers` عند إنشاء القضية، مع Auto-attach لمنشئ القضية إذا كان Avocato | ✅ مكتمل |
 | **جلب قضايا المحامي** | `GET /api/lawyers/{id}/cases` يعمل الآن بشكل صحيح مع Pagination والبيانات المرتبطة | ✅ مكتمل |
 | **إنشاء قضية ذكي حسب الدور** | Avocato يرسل `client_id` فقط، Client يرسل `lawyer_id` فقط، Admin يتحكم كاملاً - مع Auto-attach ذكي | ✅ مكتمل |
+| **حقول المحامي المتقدمة** | إضافة Bar Association Number، Office Location، Years of Experience، Specialty و rate عشوائي | ✅ مكتمل |
+| **إصلاح LawyerController** | Pagination، Validation موحّد مع `Rule::unique`، Response موحد | ✅ مكتمل |
+| **حالات قضايا ثابتة** | 5 حالات: pending (افتراضي)، active، suspended، flagged، closed | ✅ مكتمل |
+| **Lawyer Overview** | `GET /api/lawyers/overview` - إحصائيات المحامي | ✅ مكتمل |
+| **ملفات المحامي (Lawyer Documents)** | Model + Migration + Controller + CRUD مع رفع ملفات وصور | ✅ مكتمل |
+| **إنذارات المحامي (Warning History)** | Model + Migration + Controller + CRUD مع توليد ID تلقائي (WRN-xxxx) | ✅ مكتمل |
 
 ### 🔄 الميزات المنفذة جزئياً
 
@@ -364,7 +399,7 @@ POST   /api/cases                 - إنشاء قضية جديدة (accessible b
 
 ### مسارات محمية (admin أو avocato) عبر `auth:api`:
 ```
-GET    /api/cases-overview        - لوحة إحصائيات القضايا
+GET    /api/cases-overview        - لوحة إحصائيات القضايا (active, closed, pending, suspended, flagged)
 GET    /api/cases                 - قائمة القضايا
 GET    /api/cases/{id}            - عرض قضية
 PUT    /api/cases/{id}            - تحديث قضية
@@ -381,6 +416,7 @@ POST   /api/lawyers               - إنشاء محامٍ جديد
 GET    /api/lawyers/{id}          - عرض محامٍ
 PUT    /api/lawyers/{id}          - تحديث محامٍ
 DELETE /api/lawyers/{id}          - حذف محامٍ
+GET    /api/lawyers/overview      - لوحة إحصائيات المحامي (total, pending, active, closed, suspended, flagged)
 PATCH  /api/lawyers/{id}/toggle-status  - تفعيل/تعطيل محامٍ
 GET    /api/lawyers/{id}/cases    - قضايا محامٍ معين
 
@@ -389,6 +425,18 @@ POST   /api/legals                - إنشاء قانون جديد
 GET    /api/legals/{id}           - عرض قانون
 PUT    /api/legals/{id}           - تحديث قانون
 DELETE /api/legals/{id}           - حذف قانون
+
+GET    /api/lawyer-documents             - قائمة ملفات المحامي
+POST   /api/lawyer-documents             - رفع ملف/شهادة جديدة 📦 (multipart: title, file, type?, description?)
+GET    /api/lawyer-documents/{id}        - عرض ملف
+PUT    /api/lawyer-documents/{id}        - تحديث ملف (مع إمكانية تغيير الملف)
+DELETE /api/lawyer-documents/{id}        - حذف ملف
+
+GET    /api/warning-histories              - قائمة الإنذارات
+POST   /api/warning-histories              - إنشاء إنذار جديد (body: lawyer_id, reason, date, status?)
+GET    /api/warning-histories/{id}         - عرض إنذار
+PUT    /api/warning-histories/{id}         - تحديث إنذار
+DELETE /api/warning-histories/{id}         - حذف إنذار
 ```
 
 ---
@@ -502,6 +550,12 @@ php artisan test
 2. ✅ **رفع ملفات مع إنشاء القضية** - إضافة support لرفع مستندات اختيارية أثناء إنشاء القضية
 3. ✅ **ربط المحامين بالقضية** - إصلاح `lawyers/{id}/cases` وإضافة ربط المحامين عبر `case_lawyers` عند إنشاء القضية + Auto-attach لمنشئ القضية
 4. ✅ **إنشاء قضية ذكي (Role-Aware)** - Avocato → يرسل `client_id` فقط ويُضاف تلقائياً كمحامي. Client → يرسل `lawyer_id` فقط ويُضاف تلقائياً كطرف. Admin → تحكم كامل بالمصفوفات
+5. ✅ **إضافة حقول المحامي** - إضافة `bar_association_number`، `office_location`، `years_of_experience`، `specialty` لجدول users + rate عشوائي عند الإنشاء
+6. ✅ **إصلاح LawyerController** - استخدام `paginate` بدل `get`، `validated()` بدل null coalescing، `Rule::unique` للتحديث، Response موحد
+7. ✅ **حالات قضايا ثابتة** - 5 حالات (pending, active, suspended, flagged, closed) مع default=pending للقضايا الجديدة
+8. ✅ **Lawyer Overview** - endpoint جديد `GET /api/lawyers/overview` يعيد إحصائيات المحامي
+9. ✅ **ملفات المحامي (Lawyer Documents)** - Model + Migration + Controller + Endpoints CRUD كامل مع رفع ملفات (شهادات، رخص، ...)
+10. ✅ **إنذارات المحامي (Warning History)** - Model + Migration + Controller + Endpoints CRUD كامل مع توليد warning_id تلقائي (WRN-xxxx) ونظام صلاحيات (avocato يرى فقط إنذاراته)
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)

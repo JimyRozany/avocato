@@ -31,6 +31,7 @@ class CaseController extends Controller
             $data = $request->safe()->only([
                 'case_number', 'title', 'description', 'type', 'court_name', 'start_date'
             ]);
+            $data['status'] = CaseModel::STATUS_PENDING;
             $data['created_by'] = auth()->id();
 
             DB::beginTransaction();
@@ -144,17 +145,21 @@ class CaseController extends Controller
 
         $allCases = CaseModel::get();
 
-        $totalCases   = $allCases->count();
-        $openCases    = $allCases->where('status', 'open')->count();
-        $closeCases   = $allCases->where('status', 'close')->count();
-        $pendingCases = $allCases->where('status', 'pending')->count();
+        $totalCases     = $allCases->count();
+        $activeCases    = $allCases->where('status', CaseModel::STATUS_ACTIVE)->count();
+        $closedCases    = $allCases->where('status', CaseModel::STATUS_CLOSED)->count();
+        $pendingCases   = $allCases->where('status', CaseModel::STATUS_PENDING)->count();
+        $suspendedCases = $allCases->where('status', CaseModel::STATUS_SUSPENDED)->count();
+        $flaggedCases   = $allCases->where('status', CaseModel::STATUS_FLAGGED)->count();
 
         return $this->successResponse([
             "cases" => $cases,
             "totalCases" => $totalCases,
-            "openCases" => $openCases,
-            "closeCases" => $closeCases,
+            "activeCases" => $activeCases,
+            "closedCases" => $closedCases,
             "pendingCases" => $pendingCases,
+            "suspendedCases" => $suspendedCases,
+            "flaggedCases" => $flaggedCases,
         ]);
     }
 

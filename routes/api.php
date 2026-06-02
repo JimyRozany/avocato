@@ -5,7 +5,9 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\CaseController;
 use App\Http\Controllers\Api\CaseSessionController;
 use App\Http\Controllers\Api\LawyerController;
+use App\Http\Controllers\Api\LawyerDocumentController;
 use App\Http\Controllers\Api\LegalController;
+use App\Http\Controllers\Api\WarningHistoryController;
 use Illuminate\Support\Facades\Route;
 
 
@@ -51,6 +53,7 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
     /**
      * ================== Lawyer Routes ===================
      */
+    Route::get('lawyers/overview', [LawyerController::class, 'overview']);
     Route::patch('lawyers/{id}/toggle-status', [LawyerController::class, 'toggleStatus']);
     Route::get('lawyers/{id}/cases', [LawyerController::class, 'getLawyerCases']);
     Route::apiResource('lawyers', LawyerController::class);
@@ -59,5 +62,15 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
      * ================== Legal Routes ===================
      */
     Route::apiResource('legals', LegalController::class);
+
+    /**
+     * ================== Lawyer Document Routes ===================
+     */
+    Route::apiResource('lawyer-documents', LawyerDocumentController::class);
+
+    /**
+     * ================== Warning History Routes ===================
+     */
+    Route::apiResource('warning-histories', WarningHistoryController::class);
 
 });

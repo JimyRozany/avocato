@@ -9,6 +9,12 @@ class CaseModel extends Model
 {
     use SoftDeletes;
 
+    const STATUS_PENDING   = 'pending';
+    const STATUS_ACTIVE    = 'active';
+    const STATUS_SUSPENDED = 'suspended';
+    const STATUS_FLAGGED   = 'flagged';
+    const STATUS_CLOSED    = 'closed';
+
     protected $table = 'cases';
 
     protected $guarded = [];

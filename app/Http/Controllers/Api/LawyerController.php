@@ -3,88 +3,127 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\CaseModel;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class LawyerController extends Controller
 {
-    use ApiResponse ; 
-    // 1. Get all lawyers
+    use ApiResponse;
+
     public function index()
     {
-        $lawyers = User::role('avocato')->get();
+        $lawyers = User::role('avocato')
+            ->withCount(['casesAsLawyer as active_cases' => function ($q) {
+                $q->where('cases.status', CaseModel::STATUS_ACTIVE);
+            }])
+            ->latest()
+            ->paginate(10)
+            ->through(fn ($lawyer) => [
+                'id'                        => $lawyer->id,
+                'name'                      => $lawyer->name,
+                'email'                     => $lawyer->email,
+                'active_cases'              => (int) $lawyer->active_cases,
+                'rate'                      => $lawyer->rate,
+                'is_active'                 => $lawyer->is_active,
+                'created_at'                => $lawyer->created_at,
+                'updated_at'                => $lawyer->updated_at,
+                'bar_association_number'    => $lawyer->bar_association_number,
+                'office_location'           => $lawyer->office_location,
+                'years_of_experience'       => $lawyer->years_of_experience,
+                'specialty'                 => $lawyer->specialty,
+            ]);
 
-        return $this->successResponse($lawyers) ;
-     
+        return $this->successResponse($lawyers);
     }
 
-    // 2. Show single lawyer
     public function show($id)
     {
         $lawyer = User::role('avocato')->findOrFail($id);
 
-        return $this->successResponse($lawyer) ;
+        return $this->successResponse($lawyer);
     }
 
-    // 3. Create lawyer
     public function store(Request $request)
     {
-        $request->validate([
-            'name'     => 'required|string',
-            'email'    => 'required|email|unique:users',
-            'mobile'   => 'required',
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email',
+            'mobile' => 'required|string|max:20',
             'password' => 'required|min:6',
+            'bar_association_number' => 'nullable|string|max:255',
+            'office_location' => 'nullable|string|max:255',
+            'years_of_experience' => 'nullable|integer|min:0',
+            'specialty' => 'nullable|string|max:255',
         ]);
 
-        $lawyer = User::create([
-            'name'       => $request->name,
-            'email'      => $request->email,
-            'mobile'     => $request->mobile,
-            'password'   => Hash::make($request->password),
-            'is_active'  => true,
-        ]);
+        $validated['password'] = Hash::make($validated['password']);
+        $validated['is_active'] = true;
+        $validated['rate'] = rand(50, 200);
 
+        $lawyer = User::create($validated);
         $lawyer->assignRole('avocato');
 
-         return $this->successResponse($lawyer ,'Lawyer created successfully' ,201) ;
-
-        
+        return $this->successResponse($lawyer, 'Lawyer created successfully', 201);
     }
 
-    // 4. Update lawyer
     public function update(Request $request, $id)
     {
         $lawyer = User::role('avocato')->findOrFail($id);
 
-        $lawyer->update([
-            'name'   => $request->name ?? $lawyer->name,
-            'email'  => $request->email ?? $lawyer->email,
-            'mobile' => $request->mobile ?? $lawyer->mobile,
+        $validated = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($lawyer->id)],
+            'mobile' => 'sometimes|string|max:20',
+            'password' => 'sometimes|min:6',
+            'bar_association_number' => 'nullable|string|max:255',
+            'office_location' => 'nullable|string|max:255',
+            'years_of_experience' => 'nullable|integer|min:0',
+            'specialty' => 'nullable|string|max:255',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
-        if ($request->password) {
-            $lawyer->update([
-                'password' => Hash::make($request->password)
-            ]);
-        }
-         return $this->successResponse($lawyer ,'Lawyer updated successfully',200) ;
 
-        
+        if (isset($validated['password'])) {
+            $validated['password'] = Hash::make($validated['password']);
+        }
+
+        if ($request->hasFile('image')) {
+            $validated['image'] = $request->file('image')->store('lawyers', 'public');
+        }
+
+        $lawyer->update($validated);
+
+        return $this->successResponse($lawyer->fresh(), 'Lawyer updated successfully');
     }
 
-    // 5. Delete lawyer
     public function destroy($id)
     {
         $lawyer = User::role('avocato')->findOrFail($id);
-
         $lawyer->delete();
-         return $this->successResponse("" ,'Lawyer deleted successfully',200) ;
 
+        return $this->successResponse(null, 'Lawyer deleted successfully');
     }
 
-    // 6. Activate / Deactivate
+    public function overview()
+    {
+        $user = auth()->user();
+        $cases = $user->casesAsLawyer()->get();
+        // return response()->json($cases , 200) ;
+
+        return $this->successResponse([
+            'totalCases'     => $cases->count(),
+            'pendingCases'   => $cases->where('status', CaseModel::STATUS_PENDING)->count(),
+            'activeCases'    => $cases->where('status', CaseModel::STATUS_ACTIVE)->count(),
+            'closedCases'    => $cases->where('status', CaseModel::STATUS_CLOSED)->count(),
+            'suspendedCases' => $cases->where('status', CaseModel::STATUS_SUSPENDED)->count(),
+            'flaggedCases'   => $cases->where('status', CaseModel::STATUS_FLAGGED)->count(),
+        ]);
+    }
+
     public function toggleStatus($id)
     {
         $lawyer = User::role('avocato')->findOrFail($id);
@@ -92,11 +131,9 @@ class LawyerController extends Controller
         $lawyer->is_active = !$lawyer->is_active;
         $lawyer->save();
 
-         return $this->successResponse($lawyer ,'Status updated',200) ;
+        return $this->successResponse($lawyer, 'Status updated');
     }
 
-
-    // 6. Get Cases by lawyer Id
     public function getLawyerCases(Request $request, $lawyerId)
     {
         $lawyer = User::role('avocato')->findOrFail($lawyerId);
@@ -108,9 +145,12 @@ class LawyerController extends Controller
             })
             ->latest()->get();
 
-        return response()->json([
-            'lawyer' => $lawyer->only(['id', 'name', 'email', 'mobile', 'is_active']),
-            'cases'  => $cases
+        return $this->successResponse([
+            'lawyer' => $lawyer->only([
+                'id', 'name', 'email', 'mobile', 'is_active',
+                'bar_association_number', 'office_location', 'years_of_experience', 'specialty', 'rate'
+            ]),
+            'cases'  => $cases,
         ]);
     }
 }
