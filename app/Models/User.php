@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,13 @@ class User extends Authenticatable
     /**
      * =======================================
      */
+
+    protected function image(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? url('storage/' . $value) : null,
+        );
+    }
 
     public function casesCreated()
     {
