@@ -69,7 +69,7 @@ app/
 │   │   │   ├── AuthController.php          # ⚡ المصادقة (تسجيل/دخول/خروج)
 │   │   │   ├── CaseController.php          # ⚡ إدارة القضايا (CRUD)
 │   │   │   ├── CaseSessionController.php   # ⚡ إدارة جلسات القضايا (CRUD)
-│   │   │   ├── ClientController.php        # ⚡ إدارة العملاء (list/show فقط)
+│   │   │   ├── ClientController.php        # ⚡ إدارة العملاء (CRUD كامل + overview)
 │   │   │   ├── LawyerController.php        # ⚡ إدارة المحامين (CRUD كامل)
 │   │   │   ├── LegalController.php         # ⚡ إدارة القوانين (CRUD كامل)
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
@@ -145,6 +145,7 @@ tests/
 | office_location | string | موقع المكتب (خاص بالمحامي) |
 | years_of_experience | integer | سنوات الخبرة (خاص بالمحامي) |
 | specialty | string | التخصص (خاص بالمحامي) |
+| bio | text | السيرة الذاتية (للمحامي والعميل) |
 
 **العلاقات:**
 - `casesCreated()` - القضايا التي أنشأها
@@ -279,7 +280,7 @@ tests/
 
 | الميزة | المنجز | المتبقي |
 |--------|--------|---------|
-| **إدارة العملاء** (ClientController) | عرض العملاء (index/show) | إنشاء/تعديل/حذف العملاء (store/update/destroy) |
+| **إدارة العملاء** (ClientController) | CRUD كامل + overview (total/pending/active/closed) + toggle-status | ✅ مكتمل |
 | **أطراف القضية** (CaseParty) | النموذج والجدول موجودان + يتم إنشاؤهم عند إنشاء القضية | لا يوجد Controller مخصص لإدارة الأطراف |
 | **بذور الصلاحيات** (PermissionSeeder) | يتم إنشاء الصلاحيات وتعيينها للأدوار | يستخدم `guard_name = 'web'` بدلاً من `'api'` (عدم اتساق مع AdminUserSeeder) + خطأ إملائي `advocato` بدلاً من `avocato` |
 | **توثيق API** | المسارات معرفة في api.php | لا يوجد توثيق Swagger/OpenAPI |
@@ -337,7 +338,13 @@ GET  /api/me             - جلب بيانات المستخدم الحالي
 
 ### مسارات محمية (admin فقط):
 ```
-GET    /api/clients      - قائمة العملاء
+GET    /api/clients                    - قائمة العملاء (id, name, email, total_cases, rate, is_active, created_at, updated_at)
+POST   /api/clients                    - إنشاء عميل جديد
+GET    /api/clients/{id}               - عرض عميل
+PUT    /api/clients/{id}               - تحديث عميل
+DELETE /api/clients/{id}               - حذف عميل
+GET    /api/clients/{id}/overview      - لوحة إحصائيات العميل (total, pending, active, closed)
+PATCH  /api/clients/{id}/toggle-status - تفعيل/تعطيل عميل
 POST   /api/clients      - إنشاء عميل (❌ الميثود غير مطبقة)
 GET    /api/clients/{id} - عرض عميل
 PUT    /api/clients/{id} - تحديث عميل (❌ الميثود غير مطبقة)
@@ -433,7 +440,8 @@ PUT    /api/lawyer-documents/{id}        - تحديث ملف (مع إمكاني�
 DELETE /api/lawyer-documents/{id}        - حذف ملف
 
 GET    /api/warning-histories              - قائمة الإنذارات
-POST   /api/warning-histories              - إنشاء إنذار جديد (body: lawyer_id, reason, date, status?)
+POST   /api/warning-histories              - إنشاء إنذار جديد (body: lawyer_id, reason)
+PATCH  /api/warning-histories/{id}/toggle-status - تغيير حالة الإنذار (body: status)
 GET    /api/warning-histories/{id}         - عرض إنذار
 PUT    /api/warning-histories/{id}         - تحديث إنذار
 DELETE /api/warning-histories/{id}         - حذف إنذار
@@ -538,7 +546,6 @@ php artisan test
 - **خطأ في PermissionSeeder**: اسم دور خاطئ (`advocato`) وحارس غير متناسق
 - **لا يوجد Service Layer**: منطق الأعمال ممتزج مع المتحكمات
 - **لا يوجد توثيق API** (مثل Swagger/OpenAPI)
-- **ClientController غير مكتمل** - لا يوجد إنشاء/تعديل/حذف
 - **لا يوجد واجهة أمامية** (متوقع أن يكون API خالص لتطبيق جوال أو SPA)
 
 ---
@@ -556,6 +563,7 @@ php artisan test
 8. ✅ **Lawyer Overview** - endpoint جديد `GET /api/lawyers/overview` يعيد إحصائيات المحامي
 9. ✅ **ملفات المحامي (Lawyer Documents)** - Model + Migration + Controller + Endpoints CRUD كامل مع رفع ملفات (شهادات، رخص، ...)
 10. ✅ **إنذارات المحامي (Warning History)** - Model + Migration + Controller + Endpoints CRUD كامل مع توليد warning_id تلقائي (WRN-xxxx) ونظام صلاحيات (avocato يرى فقط إنذاراته)
+11. ✅ **إكمال ClientController** - إضافة store, update, destroy, toggleStatus, overview + شكل داتا مخصص في index (id, name, email, total_cases, rate, is_active, created_at, updated_at)
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)

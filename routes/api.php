@@ -24,7 +24,9 @@ Route::middleware('auth:sanctum')->group(function () {
    /**
     * ============== Client Routes ============= (Role Admin )
     */
-     Route::middleware('role:admin')->group(function () {
+      Route::middleware('role:admin')->group(function () {
+        Route::get('clients/{id}/overview', [ClientController::class, 'overview']);
+        Route::patch('clients/{id}/toggle-status', [ClientController::class, 'toggleStatus']);
         Route::apiResource('clients', ClientController::class);
     });
 
@@ -63,14 +65,21 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
      */
     Route::apiResource('legals', LegalController::class);
 
-    /**
-     * ================== Lawyer Document Routes ===================
-     */
-    Route::apiResource('lawyer-documents', LawyerDocumentController::class);
+    
 
     /**
      * ================== Warning History Routes ===================
      */
+    Route::patch('warning-histories/{id}/toggle-status', [WarningHistoryController::class, 'toggleStatus']);
     Route::apiResource('warning-histories', WarningHistoryController::class);
 
+});
+
+
+// ============= Avocato routes =============
+Route::middleware(['auth:api', 'role:avocato'])->group(function () {
+    /**
+     * ================== Lawyer Document Routes ===================
+     */
+    Route::apiResource('lawyer-documents', LawyerDocumentController::class);
 });

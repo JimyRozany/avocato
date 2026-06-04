@@ -7,6 +7,7 @@ use App\Models\LawyerDocument;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class LawyerDocumentController extends Controller
 {
@@ -26,14 +27,19 @@ class LawyerDocumentController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'type' => 'nullable|string|max:255',
-            'description' => 'nullable|string',
+            // 'title' => 'required|string|max:255',
+            // 'type' => 'nullable|string|max:255',
+            // 'description' => 'nullable|string',
             'file' => 'required|file|max:5120',
         ]);
 
+        $filename = Str::uuid() . '.' . $validated['file']->getClientOriginalExtension();
+        $validated['title'] = $filename ;
+
+
         $validated['file_path'] = $request->file('file')->store('lawyer-documents', 'public');
         $validated['user_id'] = $request->user()->id;
+
 
         unset($validated['file']);
 

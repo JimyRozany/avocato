@@ -28,11 +28,12 @@ class WarningHistoryController extends Controller
         $validated = $request->validate([
             'lawyer_id' => 'required|exists:users,id',
             'reason' => 'required|string',
-            'date' => 'required|date',
-            'status' => 'nullable|string|in:pending,active,resolved',
+            // 'date' => 'nullable|date',
+            // 'status' => 'nullable|string|in:pending,active,resolved',
         ]);
 
         $validated['sent_by'] = $request->user()->id;
+        $validated['date'] = now();
         $validated['status'] ??= 'pending';
 
         $validated['warning_id'] = $this->generateWarningId();
@@ -73,6 +74,22 @@ class WarningHistoryController extends Controller
         return $this->successResponse(
             $warning->fresh()->load(['lawyer:id,name,email', 'sender:id,name,email']),
             'Warning updated successfully'
+        );
+    }
+
+    public function toggleStatus(Request $request, $id)
+    {
+        $warning = WarningHistory::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => 'required|string|in:pending,active,resolved',
+        ]);
+
+        $warning->update($validated);
+
+        return $this->successResponse(
+            $warning->fresh()->load(['lawyer:id,name,email', 'sender:id,name,email']),
+            'Warning status updated successfully'
         );
     }
 

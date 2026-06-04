@@ -35,6 +35,7 @@ class LawyerController extends Controller
                 'office_location'           => $lawyer->office_location,
                 'years_of_experience'       => $lawyer->years_of_experience,
                 'specialty'                 => $lawyer->specialty,
+                'bio'                       => $lawyer->bio,
             ]);
 
         return $this->successResponse($lawyers);
@@ -58,10 +59,11 @@ class LawyerController extends Controller
             'office_location' => 'nullable|string|max:255',
             'years_of_experience' => 'nullable|integer|min:0',
             'specialty' => 'nullable|string|max:255',
+            'bio' => 'nullable|string',
         ]);
 
         $validated['password'] = Hash::make($validated['password']);
-        $validated['is_active'] = true;
+        $validated['is_active'] = false;
         $validated['rate'] = rand(50, 200);
 
         $lawyer = User::create($validated);
@@ -72,6 +74,7 @@ class LawyerController extends Controller
 
     public function update(Request $request, $id)
     {
+        // return response()->json($request->all(), 200);
         $lawyer = User::role('avocato')->findOrFail($id);
 
         $validated = $request->validate([
@@ -83,6 +86,7 @@ class LawyerController extends Controller
             'office_location' => 'nullable|string|max:255',
             'years_of_experience' => 'nullable|integer|min:0',
             'specialty' => 'nullable|string|max:255',
+            'bio' => 'nullable|string',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
@@ -148,7 +152,7 @@ class LawyerController extends Controller
         return $this->successResponse([
             'lawyer' => $lawyer->only([
                 'id', 'name', 'email', 'mobile', 'is_active',
-                'bar_association_number', 'office_location', 'years_of_experience', 'specialty', 'rate'
+                'bar_association_number', 'office_location', 'years_of_experience', 'specialty', 'bio', 'rate'
             ]),
             'cases'  => $cases,
         ]);
