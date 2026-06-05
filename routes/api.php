@@ -65,6 +65,11 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
      */
     Route::apiResource('legals', LegalController::class);
 
+    /**
+     * ================== Lawyer Document Routes (admin & avocato) ===================
+     */
+    Route::get('lawyer-documents/lawyer/{lawyerId}', [LawyerDocumentController::class, 'getByLawyer']);
+
     
 
     /**

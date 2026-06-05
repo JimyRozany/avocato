@@ -438,6 +438,7 @@ POST   /api/lawyer-documents             - رفع ملف/شهادة جديدة �
 GET    /api/lawyer-documents/{id}        - عرض ملف
 PUT    /api/lawyer-documents/{id}        - تحديث ملف (مع إمكانية تغيير الملف)
 DELETE /api/lawyer-documents/{id}        - حذف ملف
+GET    /api/lawyer-documents/lawyer/{lawyerId} - كل مستندات محامٍ معين
 
 GET    /api/warning-histories              - قائمة الإنذارات
 POST   /api/warning-histories              - إنشاء إنذار جديد (body: lawyer_id, reason)

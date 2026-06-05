@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\LawyerDocument;
+use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -103,5 +104,19 @@ class LawyerDocumentController extends Controller
         $document->delete();
 
         return $this->successResponse(null, 'Document deleted successfully');
+    }
+
+    public function getByLawyer($lawyerId)
+    {
+        $lawyer = User::role('avocato')->findOrFail($lawyerId);
+
+        $documents = LawyerDocument::where('user_id', $lawyer->id)
+            ->latest()
+            ->get();
+
+        return $this->successResponse([
+            'lawyer'    => $lawyer->only('id', 'name', 'email'),
+            'documents' => $documents,
+        ]);
     }
 }
