@@ -74,6 +74,9 @@ app/
 │   │   │   ├── LegalController.php         # ⚡ إدارة القوانين (CRUD كامل)
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
 │   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
+│   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
+│   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
+│   │   │   ├── RolePermissionController.php # ⚡ إدارة الأدوار والصلاحيات (admin only)
 │   │   │   └── CaseController_.php         # ❌ ملف قديم - غير مستخدم
 │   │   └── Controller.php                  # الـ Base Controller
 │   └── Requests/
@@ -88,7 +91,8 @@ app/
 │   ├── Payment.php                         # المدفوعات
 │   ├── Legal.php                           # القوانين (Legal)
 │   ├── LawyerDocument.php                  # شهادات ومستندات المحامي
-│   └── WarningHistory.php                  # إنذارات المحامي
+│   ├── WarningHistory.php                  # إنذارات المحامي
+│   └── ContactUs.php                       # رسائل التواصل
 ├── Providers/
 │   └── AppServiceProvider.php
 └── Traits/
@@ -108,7 +112,7 @@ database/
 ├── seeders/
 │   ├── DatabaseSeeder.php
 │   ├── AdminUserSeeder.php                 # ✅ بذور المستخدمين والأدوار
-│   ├── PermissionSeeder.php                # ✅ بذور الصلاحيات (يحتاج مراجعة)
+│   ├── PermissionSeeder.php                # ✅ صلاحيات أساسية لكل دور (admin, avocato, client) guard_name = api
 │   └── LegalSeeder.php                     # ✅ بذور القوانين الافتراضية
 
 routes/
@@ -127,7 +131,7 @@ tests/
 
 ## 🗃️ قاعدة البيانات والنماذج (Models)
 
-النظام يحتوي على **10 نماذج** و **16 جدولاً** في قاعدة البيانات:
+النظام يحتوي على **11 نموذج** و **17 جدولاً** في قاعدة البيانات:
 
 ### 1. User (المستخدمون) - `users`
 | الحقل | النوع | الوصف |
@@ -235,11 +239,21 @@ tests/
 | file_path | string | مسار الملف |
 | description | text | وصف |
 
-### 10. WarningHistory (إنذارات المحامي) - `warning_histories`
+### 11. ContactUs (رسائل التواصل) - `contact_us`
 | الحقل | النوع | الوصف |
 |-------|------|-------|
 | id | bigint | المفتاح الأساسي |
-| lawyer_id | FK `users` | المحامي الموجه إليه الإنذار |
+| full_name | string | الاسم الكامل |
+| email | string | البريد الإلكتروني |
+| mobile | string | رقم الجوال |
+| message | text | نص الرسالة |
+
+### 10. WarningHistory (إنذارات) - `warning_histories`
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| id | bigint | المفتاح الأساسي |
+| lawyer_id | FK `users` | المستهدف بالإنذار (محامي أو عميل) |
+| warning_for | string | نوع المستهدف (lawyer/client) |
 | warning_id | string | رقم الإنذار الفريد (auto: WRN-0001) |
 | reason | text | سبب الإنذار |
 | sent_by | FK `users` | من أصدر الإنذار |
@@ -273,8 +287,11 @@ tests/
 | **إصلاح LawyerController** | Pagination، Validation موحّد مع `Rule::unique`، Response موحد | ✅ مكتمل |
 | **حالات قضايا ثابتة** | 5 حالات: pending (افتراضي)، active، suspended، flagged، closed | ✅ مكتمل |
 | **Lawyer Overview** | `GET /api/lawyers/overview` - إحصائيات المحامي | ✅ مكتمل |
+| **Lawyer Statistics** | `GET /api/lawyers/statistics` - إحصائيات عامة (total, active, pending, suspended) | ✅ مكتمل |
+| **Client Overview** | `GET /api/clients/overview` - إحصائيات عامة (total, active, pending, suspended) | ✅ مكتمل |
 | **ملفات المحامي (Lawyer Documents)** | Model + Migration + Controller + CRUD مع رفع ملفات وصور | ✅ مكتمل |
 | **إنذارات المحامي (Warning History)** | Model + Migration + Controller + CRUD مع توليد ID تلقائي (WRN-xxxx) | ✅ مكتمل |
+| **Contact Us (رسائل التواصل)** | Model + Migration + Controller + إرسال عام + عرض/حذف admin | ✅ مكتمل |
 
 ### 🔄 الميزات المنفذة جزئياً
 
@@ -282,7 +299,7 @@ tests/
 |--------|--------|---------|
 | **إدارة العملاء** (ClientController) | CRUD كامل + overview (total/pending/active/closed) + toggle-status | ✅ مكتمل |
 | **أطراف القضية** (CaseParty) | النموذج والجدول موجودان + يتم إنشاؤهم عند إنشاء القضية | لا يوجد Controller مخصص لإدارة الأطراف |
-| **بذور الصلاحيات** (PermissionSeeder) | يتم إنشاء الصلاحيات وتعيينها للأدوار | يستخدم `guard_name = 'web'` بدلاً من `'api'` (عدم اتساق مع AdminUserSeeder) + خطأ إملائي `advocato` بدلاً من `avocato` |
+| **بذور الصلاحيات** (PermissionSeeder) | ✅ صلاحيات أساسية لكل دور مع `guard_name = 'api'` | لا يوجد |
 | **توثيق API** | المسارات معرفة في api.php | لا يوجد توثيق Swagger/OpenAPI |
 | **التحقق من صحة البيانات** | يوجد StoreCaseRequest للقضايا | باقي المتحكمات تستخدم تحققاً داخلياً (inline) |
 
@@ -316,9 +333,8 @@ tests/
 الصلاحيات معرفة ولكنها حالياً غير مفعلة بالكامل - النظام يعتمد على التحقق من **الدور (Role)** مباشرة في Middleware.
 
 ### ملاحظات على نظام الصلاحيات:
-1. ⚠️ **عدم تناسق الحارس (Guard)**: PermissionSeeder يستخدم `guard_name => 'web'` بينما AdminUserSeeder يستخدم `guard_name => 'api'`
-2. ⚠️ **خطأ إملائي**: في PermissionSeeder مكتوب `role('advocato')` والصحيح `avocato`
-3. 🔄 المسارات تستخدم `middleware('role:admin')` ولكن بعضها يستخدم `middleware('auth:api')` والبعض الآخر `middleware('auth:sanctum')`
+1. ✅ PermissionSeeder يستخدم `guard_name => 'api'` بشكل موحد مع باقي النظام
+2. 🔄 المسارات تستخدم `middleware('role:admin')` ولكن بعضها يستخدم `middleware('auth:api')` والبعض الآخر `middleware('auth:sanctum')`
 
 ---
 
@@ -326,7 +342,7 @@ tests/
 
 ### المسارات العامة (بدون مصادقة):
 ```
-POST /api/register       - تسجيل مستخدم جديد
+POST /api/register       - تسجيل مستخدم جديد (type: client → total_cases=0, avocato → active_cases=0)
 POST /api/login          - تسجيل الدخول
 ```
 
@@ -343,7 +359,8 @@ POST   /api/clients                    - إنشاء عميل جديد
 GET    /api/clients/{id}               - عرض عميل
 PUT    /api/clients/{id}               - تحديث عميل
 DELETE /api/clients/{id}               - حذف عميل
-GET    /api/clients/{id}/overview      - لوحة إحصائيات العميل (total, pending, active, closed)
+GET    /api/clients/{id}/show-overview  - لوحة إحصائيات عميل معين (total, pending, active, closed)
+GET    /api/clients/overview            - إحصائيات عامة للعملاء (total, active, pending, suspended)
 PATCH  /api/clients/{id}/toggle-status - تفعيل/تعطيل عميل
 POST   /api/clients      - إنشاء عميل (❌ الميثود غير مطبقة)
 GET    /api/clients/{id} - عرض عميل
@@ -411,6 +428,7 @@ GET    /api/cases                 - قائمة القضايا
 GET    /api/cases/{id}            - عرض قضية
 PUT    /api/cases/{id}            - تحديث قضية
 DELETE /api/cases/{id}            - حذف قضية
+PATCH /api/cases/{id}/force-close - إغلاق قضية قسرياً (**admin only**)
 
 GET    /api/case-sessions         - قائمة الجلسات
 POST   /api/case-sessions         - إنشاء جلسة جديدة (مع رفع ملف)
@@ -418,12 +436,13 @@ GET    /api/case-sessions/{id}    - عرض جلسة
 PUT    /api/case-sessions/{id}    - تحديث جلسة (مع رفع ملف)
 DELETE /api/case-sessions/{id}    - حذف جلسة
 
-GET    /api/lawyers               - قائمة المحامين
+GET    /api/lawyers*              - قائمة المحامين (**عامة - بدون مصادقة**)
 POST   /api/lawyers               - إنشاء محامٍ جديد
 GET    /api/lawyers/{id}          - عرض محامٍ
 PUT    /api/lawyers/{id}          - تحديث محامٍ
 DELETE /api/lawyers/{id}          - حذف محامٍ
 GET    /api/lawyers/overview      - لوحة إحصائيات المحامي (total, pending, active, closed, suspended, flagged)
+GET    /api/lawyers/statistics    - إحصائيات عامة للمحامين (total, active, pending, suspended)
 PATCH  /api/lawyers/{id}/toggle-status  - تفعيل/تعطيل محامٍ
 GET    /api/lawyers/{id}/cases    - قضايا محامٍ معين
 
@@ -441,11 +460,25 @@ DELETE /api/lawyer-documents/{id}        - حذف ملف
 GET    /api/lawyer-documents/lawyer/{lawyerId} - كل مستندات محامٍ معين
 
 GET    /api/warning-histories              - قائمة الإنذارات
-POST   /api/warning-histories              - إنشاء إنذار جديد (body: lawyer_id, reason)
+POST   /api/warning-histories              - إنشاء إنذار جديد (body: user_id, reason, warning_for? auto-detected)
 PATCH  /api/warning-histories/{id}/toggle-status - تغيير حالة الإنذار (body: status)
 GET    /api/warning-histories/{id}         - عرض إنذار
 PUT    /api/warning-histories/{id}         - تحديث إنذار
 DELETE /api/warning-histories/{id}         - حذف إنذار
+GET    /api/warning-histories/lawyer/{lawyerId} - كل إنذارات محامٍ معين
+GET    /api/warning-histories/client/{clientId} - كل إنذارات عميل معين
+
+POST   /api/contact-us                     - إرسال رسالة تواصل (**عام**)
+GET    /api/contact-us                     - عرض كل الرسائل (admin)
+GET    /api/contact-us/{id}                - عرض رسالة (admin)
+DELETE /api/contact-us/{id}                - حذف رسالة (admin)
+
+GET    /api/roles                          - قائمة الأدوار مع صلاحياتها (admin)
+GET    /api/roles/{id}                     - عرض دور مع صلاحياته (admin)
+POST   /api/roles                          - إنشاء دور جديد مع صلاحيات (admin)
+PUT    /api/roles/{id}                     - تحديث اسم و/أو صلاحيات دور (admin)
+GET    /api/permissions                    - قائمة كل الصلاحيات (admin)
+DELETE /api/roles/{id}                     - حذف دور (admin, عدا الأدوار الأساسية)
 ```
 
 ---
@@ -544,7 +577,7 @@ php artisan test
 - **لا توجد اختبارات** لأي وظيفة API
 - **ميزات غير مكتملة**: الأحكام، المدفوعات، المستندات المستقلة، أطراف القضية
 - **عدم تناسق الحارس**: بعض المسارات تستخدم `auth:sanctum` وأخرى `auth:api`
-- **خطأ في PermissionSeeder**: اسم دور خاطئ (`advocato`) وحارس غير متناسق
+- ✅ PermissionSeeder تم إصلاحه (تصحيح الخطأ الإملائي وتوحيد الحارس)
 - **لا يوجد Service Layer**: منطق الأعمال ممتزج مع المتحكمات
 - **لا يوجد توثيق API** (مثل Swagger/OpenAPI)
 - **لا يوجد واجهة أمامية** (متوقع أن يكون API خالص لتطبيق جوال أو SPA)
@@ -565,6 +598,12 @@ php artisan test
 9. ✅ **ملفات المحامي (Lawyer Documents)** - Model + Migration + Controller + Endpoints CRUD كامل مع رفع ملفات (شهادات، رخص، ...)
 10. ✅ **إنذارات المحامي (Warning History)** - Model + Migration + Controller + Endpoints CRUD كامل مع توليد warning_id تلقائي (WRN-xxxx) ونظام صلاحيات (avocato يرى فقط إنذاراته)
 11. ✅ **إكمال ClientController** - إضافة store, update, destroy, toggleStatus, overview + شكل داتا مخصص في index (id, name, email, total_cases, rate, is_active, created_at, updated_at)
+12. ✅ **تحسين Register** - إضافة conditional response (client → total_cases=0, avocato → active_cases=0) + auto role assignment + ApiResponse trait
+13. ✅ **قائمة المحامين عامة** - `GET /api/lawyers` أصبح بدون مصادقة + إضافة `image` للـ response
+14. ✅ **إحصائيات العملاء والمحامين** - `GET /api/clients/overview` و `GET /api/lawyers/statistics` تعيد total/active/pending/suspended
+15. ✅ **Force Close Case** - `PATCH /api/cases/{id}/force-close` لإغلاق القضية قسرياً (admin only)
+16. ✅ **Contact Us** - Model + Migration + Controller + Endpoints (إرسال عام، عرض/حذف للمشرف)
+17. ✅ **Roles & Permissions Management** - Endpoints لجلب/إنشاء/تعديل/حذف الأدوار والصلاحيات (admin only)
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)

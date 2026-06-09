@@ -103,7 +103,23 @@ class ClientController extends Controller
         return $this->successResponse($client, 'Status updated');
     }
 
-    public function overview($id)
+    public function overview()
+    {
+        $total  = User::where('type', 'client')->count();
+        $active = User::where('type', 'client')->where('is_active', true)->count();
+        $inactive = User::where('type', 'client')->where('is_active', false)->get();
+        $pending = $inactive->whereNull('status')->count() + $inactive->where('status', 'pending')->count();
+        $suspended = $inactive->where('status', 'suspended')->count();
+
+        return $this->successResponse([
+            'totalClients'        => $total,
+            'activeClients'       => $active,
+            'pendingVerification' => $pending,
+            'suspendedAccounts'   => $suspended,
+        ]);
+    }
+
+    public function clientOverview($id)
     {
         $client = User::where('type', 'client')->findOrFail($id);
 

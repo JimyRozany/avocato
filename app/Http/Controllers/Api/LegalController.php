@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Legal;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class LegalController extends Controller
 {
@@ -40,11 +41,22 @@ class LegalController extends Controller
     {
         $legal = Legal::findOrFail($id);
 
-        $validated = $request->validate([
+        $rules = [
             'name' => 'sometimes|required|string|max:255',
-            'rule_number' => 'sometimes|required|string|max:255|unique:legals,rule_number,' . $legal->id,
+            'rule_number' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+            ],
             'rule_description' => 'nullable|string',
-        ]);
+        ];
+
+        if ($request->has('rule_number') && $request->rule_number !== $legal->rule_number) {
+            $rules['rule_number'][] = Rule::unique('legals', 'rule_number');
+        }
+
+        $validated = $request->validate($rules);
 
         $legal->update($validated);
 

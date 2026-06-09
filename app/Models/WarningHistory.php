@@ -15,7 +15,7 @@ class WarningHistory extends Model
         ];
     }
 
-    public function lawyer()
+    public function target()
     {
         return $this->belongsTo(User::class, 'lawyer_id');
     }

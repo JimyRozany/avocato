@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -11,58 +10,61 @@ class PermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        $permissions = [
-            'case-list',
-            'case-create',
-            'case-show',
-            'case-update',
-            'case-delete',
+        $guard = 'api';
 
-            'hearing-create',
-            'hearing-update',
-            'hearing-delete',
-
-            'document-upload',
-            'document-delete',
-
-            'payment-create',
-            'payment-update',
-            'payment-delete',
+        $clientPermissions = [
+            'cases.view-own',
+            'cases.create',
+            'cases.show',
+            'documents.view-own',
+            'sessions.view-own',
+            'profile.view',
+            'profile.update',
         ];
 
-        foreach ($permissions as $permission) {
+        $lawyerPermissions = [
+            'cases.list',
+            'cases.create',
+            'cases.show',
+            'cases.update',
+            'cases.delete',
+            'clients.view-assigned',
+            'sessions.create',
+            'sessions.update',
+            'sessions.delete',
+            'sessions.list',
+            'documents.upload',
+            'documents.delete',
+            'documents.view',
+            'lawyer-documents.manage',
+            'warnings.view',
+            'payments.create',
+            'payments.update',
+        ];
+
+        $allPermissions = array_unique(array_merge($clientPermissions, $lawyerPermissions, [
+            'clients.manage',
+            'users.manage',
+            'roles.manage',
+            'settings.view',
+            'contact-us.manage',
+            'warnings.manage',
+        ]));
+
+        foreach ($allPermissions as $permission) {
             Permission::firstOrCreate([
                 'name' => $permission,
-                'guard_name' => 'web',
+                'guard_name' => $guard,
             ]);
         }
 
-        $admin = Role::where('name', 'admin')->first();
-        $advocate = Role::where('name', 'advocato')->first();
-        $client = Role::where('name', 'client')->first();
+        $admin  = Role::firstOrCreate(['name' => 'admin', 'guard_name' => $guard]);
+        $avocato = Role::firstOrCreate(['name' => 'avocato', 'guard_name' => $guard]);
+        $client  = Role::firstOrCreate(['name' => 'client', 'guard_name' => $guard]);
 
-        if ($admin) {
-            $admin->givePermissionTo(Permission::all());
-        }
+        $admin->syncPermissions(Permission::all());
 
-        if ($advocate) {
-            $advocate->givePermissionTo([
-                'case-list',
-                'case-create',
-                'case-show',
-                'case-update',
-                'hearing-create',
-                'hearing-update',
-                'document-upload',
-                'payment-create',
-            ]);
-        }
-
-        if ($client) {
-            $client->givePermissionTo([
-                'case-list',
-                'case-show',
-            ]);
-        }
+        $avocato->syncPermissions($lawyerPermissions);
+        $client->syncPermissions($clientPermissions);
     }
 }

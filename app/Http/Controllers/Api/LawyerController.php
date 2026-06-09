@@ -36,6 +36,7 @@ class LawyerController extends Controller
                 'years_of_experience'       => $lawyer->years_of_experience,
                 'specialty'                 => $lawyer->specialty,
                 'bio'                       => $lawyer->bio,
+                'image'                     => $lawyer->image,
             ]);
 
         return $this->successResponse($lawyers);
@@ -125,6 +126,22 @@ class LawyerController extends Controller
             'closedCases'    => $cases->where('status', CaseModel::STATUS_CLOSED)->count(),
             'suspendedCases' => $cases->where('status', CaseModel::STATUS_SUSPENDED)->count(),
             'flaggedCases'   => $cases->where('status', CaseModel::STATUS_FLAGGED)->count(),
+        ]);
+    }
+
+    public function overviewStats()
+    {
+        $total     = User::role('avocato')->count();
+        $active    = User::role('avocato')->where('is_active', true)->count();
+        $inactive  = User::role('avocato')->where('is_active', false)->get();
+        $pending   = $inactive->whereNull('status')->count() + $inactive->where('status', 'pending')->count();
+        $suspended = $inactive->where('status', 'suspended')->count();
+
+        return $this->successResponse([
+            'totalLawyers'        => $total,
+            'activeLawyers'       => $active,
+            'pendingVerification' => $pending,
+            'suspendedAccounts'   => $suspended,
         ]);
     }
 

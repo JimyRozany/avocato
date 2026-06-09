@@ -139,6 +139,15 @@ class CaseController extends Controller
     }
 
 
+   public function forceClose($id)
+   {
+       $case = CaseModel::findOrFail($id);
+       $case->update(['status' => CaseModel::STATUS_CLOSED]);
+
+       return $this->successResponse($case, 'Case closed successfully');
+   }
+
+
    public function overview()
     {
         $cases = CaseModel::paginate(10);
