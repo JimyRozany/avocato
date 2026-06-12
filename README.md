@@ -75,7 +75,7 @@ app/
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
 │   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
 │   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
-│   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
+│   │   │   ├── ReviewController.php        # ⚡ التقييمات بين المحامي والعميل (CRUD)
 │   │   │   ├── RolePermissionController.php # ⚡ إدارة الأدوار والصلاحيات (admin only)
 │   │   │   └── CaseController_.php         # ❌ ملف قديم - غير مستخدم
 │   │   └── Controller.php                  # الـ Base Controller
@@ -92,7 +92,8 @@ app/
 │   ├── Legal.php                           # القوانين (Legal)
 │   ├── LawyerDocument.php                  # شهادات ومستندات المحامي
 │   ├── WarningHistory.php                  # إنذارات المحامي
-│   └── ContactUs.php                       # رسائل التواصل
+│   ├── ContactUs.php                       # رسائل التواصل
+│   └── Review.php                          # التقييمات (بين المحامي والعميل والأدمن)
 ├── Providers/
 │   └── AppServiceProvider.php
 └── Traits/
@@ -171,6 +172,7 @@ tests/
 
 **العلاقات:**
 - `creator()` - منشئ القضية
+- `client()` - العميل (طرف القضية من نوع client)
 - `parties()` - أطراف القضية
 - `lawyers()` - المحامون المكلفون
 - `sessions()` - جلسات القضية
@@ -248,6 +250,17 @@ tests/
 | mobile | string | رقم الجوال |
 | message | text | نص الرسالة |
 
+### 12. Review (التقييمات) - `reviews`
+| الحقل | النوع | الوصف |
+|-------|------|-------|
+| id | bigint | المفتاح الأساسي |
+| rating | tinyint | التقييم (1–5) |
+| comment | text | تعليق اختياري |
+| reviewer_id | FK | المقيّم (users) |
+| reviewed_id | FK | المقيَّم (users) |
+| case_id | FK (nullable) | القضية المشتركة (إجبارية لغير الأدمن) |
+| created_at | timestamp | تاريخ التقييم |
+
 ### 10. WarningHistory (إنذارات) - `warning_histories`
 | الحقل | النوع | الوصف |
 |-------|------|-------|
@@ -301,7 +314,7 @@ tests/
 | **أطراف القضية** (CaseParty) | النموذج والجدول موجودان + يتم إنشاؤهم عند إنشاء القضية | لا يوجد Controller مخصص لإدارة الأطراف |
 | **بذور الصلاحيات** (PermissionSeeder) | ✅ صلاحيات أساسية لكل دور مع `guard_name = 'api'` | لا يوجد |
 | **توثيق API** | المسارات معرفة في api.php | لا يوجد توثيق Swagger/OpenAPI |
-| **التحقق من صحة البيانات** | يوجد StoreCaseRequest للقضايا | باقي المتحكمات تستخدم تحققاً داخلياً (inline) |
+| **التحقق من صحة البيانات** | ✅ StoreCaseRequest للقضايا + قواعد إلزامية حسب الدور | باقي المتحكمات تستخدم تحققاً داخلياً (inline) |
 
 ### ❌ الميزات غير المبدوءة
 
@@ -350,6 +363,13 @@ POST /api/login          - تسجيل الدخول
 ```
 POST /api/logout         - تسجيل الخروج
 GET  /api/me             - جلب بيانات المستخدم الحالي
+
+### التقييمات (Reviews):
+GET    /api/reviews                  - قائمة التقييمات (مع فلتر reviewed_id, reviewer_id)
+POST   /api/reviews                  - إنشاء تقييم (rating 1-5, reviewed_id, comment اختياري)
+GET    /api/reviews/{id}             - عرض تقييم
+PUT    /api/reviews/{id}             - تعديل تقييم (فقط صاحبه أو الأدمن)
+DELETE /api/reviews/{id}             - حذف تقييم (فقط صاحبه أو الأدمن)
 ```
 
 ### مسارات محمية (admin فقط):
@@ -375,6 +395,21 @@ POST   /api/cases                 - إنشاء قضية جديدة (accessible b
                                    📦 هيكل الـ Body يختلف حسب دور المستخدم:
 ```
 
+🎯 **إذا كان المستخدم Admin**:
+```json
+{
+  "case_number": "CASE-001",
+  "title": "قضية تعويض",
+  "client_id": 2,
+  "lawyer_id": 3,
+  "role_in_case": "plaintiff",
+  "side": "plaintiff",
+  "description": "...",
+  "court_name": "محكمة القاهرة"
+}
+```
+> 💡 admin يرسل `client_id` + `lawyer_id` إلزامياً
+
 🎯 **إذا كان المستخدم Avocato**:
 ```json
 {
@@ -386,8 +421,7 @@ POST   /api/cases                 - إنشاء قضية جديدة (accessible b
   "court_name": "محكمة القاهرة"
 }
 ```
-> 💡 `client_id` = الطرف الآخر في القضية (العميل)
-> يتم تلقائياً: ربط المنشئ (المحامي) في `case_lawyers` + ربط العميل في `case_parties`
+> 💡 `client_id` = العميل. يتم تلقائياً: ربط المحامي (المنشئ) في `case_lawyers`
 
 🎯 **إذا كان المستخدم Client**:
 ```json
@@ -395,31 +429,13 @@ POST   /api/cases                 - إنشاء قضية جديدة (accessible b
   "case_number": "CASE-001",
   "title": "قضية تعويض",
   "lawyer_id": 3,
+  "role_in_case": "plaintiff",
   "side": "plaintiff",
   "description": "...",
   "court_name": "محكمة القاهرة"
 }
 ```
-> 💡 `lawyer_id` = المحامي المطلوب تولي القضية
-> يتم تلقائياً: ربط المنشئ (العميل) في `case_parties` + ربط المحامي في `case_lawyers`
-
-🎯 **إذا كان المستخدم Admin**:
-```json
-{
-  "case_number": "CASE-001",
-  "title": "قضية تعويض",
-  "parties": [
-    { "user_id": 2, "role_in_case": "plaintiff" },
-    { "user_id": 3, "role_in_case": "defendant" }
-  ],
-  "lawyers": [
-    { "lawyer_id": 4, "side": "plaintiff" },
-    { "lawyer_id": 5, "side": "defendant" }
-  ],
-  "description": "...",
-  "court_name": "محكمة القاهرة"
-}
-```
+> 💡 `lawyer_id` = المحامي. يتم تلقائياً: ربط العميل (المنشئ) في `case_parties`
 
 ### مسارات محمية (admin أو avocato) عبر `auth:api`:
 ```
@@ -429,6 +445,7 @@ GET    /api/cases/{id}            - عرض قضية
 PUT    /api/cases/{id}            - تحديث قضية
 DELETE /api/cases/{id}            - حذف قضية
 PATCH /api/cases/{id}/force-close - إغلاق قضية قسرياً (**admin only**)
+POST   /api/cases/{id}/documents   - رفع مستندات إلى قضية (admin & avocato)
 
 GET    /api/case-sessions         - قائمة الجلسات
 POST   /api/case-sessions         - إنشاء جلسة جديدة (مع رفع ملف)
@@ -472,6 +489,13 @@ POST   /api/contact-us                     - إرسال رسالة تواصل (*
 GET    /api/contact-us                     - عرض كل الرسائل (admin)
 GET    /api/contact-us/{id}                - عرض رسالة (admin)
 DELETE /api/contact-us/{id}                - حذف رسالة (admin)
+
+```
+### مسارات لوحة التحكم (admin):
+```
+GET    /api/dashboard               - إحصائيات المنصة (Total Users, Active Cases, Pending Approvals, Closed Cases)
+GET    /api/case-chart              - بيانات الرسم البياني (active + pending لكل شهر في آخر 3 أشهر)
+```
 
 GET    /api/roles                          - قائمة الأدوار مع صلاحياتها (admin)
 GET    /api/roles/{id}                     - عرض دور مع صلاحياته (admin)
@@ -604,6 +628,12 @@ php artisan test
 15. ✅ **Force Close Case** - `PATCH /api/cases/{id}/force-close` لإغلاق القضية قسرياً (admin only)
 16. ✅ **Contact Us** - Model + Migration + Controller + Endpoints (إرسال عام، عرض/حذف للمشرف)
 17. ✅ **Roles & Permissions Management** - Endpoints لجلب/إنشاء/تعديل/حذف الأدوار والصلاحيات (admin only)
+18. ✅ **Client + Lawyer in Case Response** - عرض معلومات العميل والمحامي داخل كل قضية عبر العلاقات `client()` و `lawyers()`
+19. ✅ **Upload Documents to Case** - `POST /api/cases/{id}/documents` لرفع مستندات لقضية بعد إنشائها
+20. ✅ **StoreCaseRequest Strict Validation** - تحقق إلزامي حسب الدور: admin→parties+lawyers, avocato→client_id, client→lawyer_id
+21. ✅ **Platform Dashboard** - `GET /api/dashboard` يعيد Total Users, Active Cases, Pending Approvals, Closed Cases
+22. ✅ **Case Chart** - `GET /api/case-chart` يعيد active + pending cases لكل شهر في آخر 3 أشهر
+23. ✅ **Reviews System** - Model + Migration + Controller + Endpoints كامل مع صلاحيات (client↔lawyer بشرط قضية مشتركة، admin لأي أحد)
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)

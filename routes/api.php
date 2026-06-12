@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\ContactUsController;
 use App\Http\Controllers\Api\LawyerController;
 use App\Http\Controllers\Api\LawyerDocumentController;
 use App\Http\Controllers\Api\LegalController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\RolePermissionController;
 use App\Http\Controllers\Api\WarningHistoryController;
 use Illuminate\Http\Request as HttpRequest;
@@ -40,6 +41,16 @@ Route::middleware(['auth:api', 'role:admin|client'])->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout',[AuthController::class , 'logout']);
     Route::get('me',[AuthController::class , 'me']);
+
+    /**
+     * ================== Review Routes ===================
+     */
+    Route::get('reviews', [ReviewController::class, 'index']);
+    Route::post('reviews', [ReviewController::class, 'store']);
+    Route::get('reviews/{id}', [ReviewController::class, 'show']);
+    Route::put('reviews/{id}', [ReviewController::class, 'update']);
+    Route::delete('reviews/{id}', [ReviewController::class, 'destroy']);
+
    /**
     * ============== Client Routes ============= (Role Admin )
     */
@@ -70,6 +81,12 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::delete('contact-us/{id}', [ContactUsController::class, 'destroy']);
 
     /**
+     * ================== Dashboard Routes ===================
+     */
+    Route::get('dashboard', [CaseController::class, 'dashboard']);
+    Route::get('case-chart', [CaseController::class, 'caseChart']);
+
+    /**
      * ================== Roles & Permissions Routes ===================
      */
     Route::get('roles', [RolePermissionController::class, 'roles']);
@@ -88,6 +105,7 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
      */
     Route::get('cases-overview', [CaseController::class , "overview"]);
     Route::apiResource('cases', CaseController::class);
+    Route::post('cases/{id}/documents', [CaseController::class, 'uploadDocumentsToCase']);
 
     /**
      * ================== Case Session Routes ===================

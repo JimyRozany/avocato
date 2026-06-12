@@ -12,19 +12,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('documents', function (Blueprint $table) {
-    $table->id();
+            $table->id();
 
-    $table->foreignId('case_id')->constrained()->cascadeOnDelete();
-    $table->foreignId('case_session_id')->nullable()->constrained()->cascadeOnDelete();
-    $table->foreignId('uploaded_by')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('case_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('case_session_id')->nullable()->constrained()->cascadeOnDelete();
+            $table->foreignId('uploaded_by')->constrained('users')->cascadeOnDelete();
 
-    $table->string('file_path');
-    $table->string('type')->nullable();
-    $table->string('title')->nullable();
+            $table->string('file_path');
+            $table->string('type')->nullable();
+            $table->string('title')->nullable();
 
-    $table->timestamps();
-    $table->softDeletes();
-});
+            $table->timestamps();
+            $table->softDeletes();
+        });
     }
 
     /**

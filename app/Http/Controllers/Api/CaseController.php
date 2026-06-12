@@ -14,93 +14,88 @@ use Illuminate\Support\Facades\Auth;
 
 class CaseController extends Controller
 {
-    use ApiResponse , HandleDocuments;
+    use ApiResponse, HandleDocuments;
     // 🔹 عرض كل القضايا
     public function index()
     {
-        $cases = CaseModel::with(['creator', 'sessions', 'lawyers' , 'parties'])
+        $cases = CaseModel::with(['creator', 'client', 'lawyers', 'sessions', 'parties'])
             ->latest()
             ->paginate(10);
 
-        return response()->json($cases);
+        return $this->successResponse($cases);
     }
 
-            // 🔹 إنشاء قضية جديدة
-        public function store(StoreCaseRequest $request)
-        {
-            $data = $request->safe()->only([
-                'case_number', 'title', 'description', 'type', 'court_name', 'start_date'
-            ]);
-            $data['status'] = CaseModel::STATUS_PENDING;
-            $data['created_by'] = auth()->id();
+    // 🔹 إنشاء قضية جديدة
+    public function store(StoreCaseRequest $request)
+    {
+        $data = $request->safe()->only([
+            'case_number',
+            'title',
+            'description',
+            'type',
+            'court_name',
+            'start_date'
+        ]);
+        $data['status'] = CaseModel::STATUS_PENDING;
+        $data['created_by'] = auth()->id();
 
-            DB::beginTransaction();
-            try {
-                $case = CaseModel::create($data);
+        DB::beginTransaction();
+        try {
+            $case = CaseModel::create($data);
 
-                $user = auth()->user();
+            $user = auth()->user();
 
-                if ($user->hasRole('avocato')) {
-
-                    $case->parties()->create([
-                        'user_id' => $request->client_id,
-                        'role_in_case' => $request->role_in_case ?? 'plaintiff',
-                    ]);
-                    $case->lawyers()->attach($user->id, ['side' => 'plaintiff']);
-
-                } elseif ($user->hasRole('client')) {
-                    $case->parties()->create([
-                        'user_id' => $user->id,
-                        'role_in_case' => $request->role_in_case ?? 'plaintiff',
-                    ]);
-                    $case->lawyers()->attach($request->lawyer_id, ['side' => $request->side ?? 'plaintiff']);
-
-                } else {
-                    if ($request->has('parties')) {
-                        $case->parties()->createMany($request->parties);
-                    }
-                    if ($request->has('lawyers')) {
-                        $lawyersData = [];
-                        foreach ($request->lawyers as $lawyer) {
-                            $lawyersData[$lawyer['lawyer_id']] = ['side' => $lawyer['side'] ?? null];
-                        }
-                        $case->lawyers()->attach($lawyersData);
-                    }
-                }
-
-                if ($request->hasFile('documents')) {
-                    $this->uploadDocuments(
-                        $request,
-                        $case->id,
-                        auth()->id()
-                    );
-                }
-
-                DB::commit();
-
-                return $this->successResponse(
-                    $case->load(['creator', 'parties', 'lawyers', 'documents']),
-                    'Created successfully',
-                    201
-                );
-            } catch (\Exception $e) {
-                DB::rollBack();
-                return $this->errorResponse('Creation failed', 500, $e->getMessage());
+            if ($request->filled('client_id')) {
+                $case->parties()->create([
+                    'user_id'      => $request->client_id,
+                    'role_in_case' => $request->role_in_case ?? 'plaintiff',
+                ]);
             }
+
+            if ($request->filled('lawyer_id')) {
+                $case->lawyers()->attach($request->lawyer_id, [
+                    'side' => $request->side ?? 'plaintiff',
+                ]);
+            }
+
+            if ($user->hasRole('avocato')) {
+                $case->lawyers()->attach($user->id, ['side' => 'plaintiff']);
+            } elseif ($user->hasRole('client')) {
+                $case->parties()->create([
+                    'user_id'      => $user->id,
+                    'role_in_case' => $request->role_in_case ?? 'plaintiff',
+                ]);
+            }
+
+            if ($request->hasFile('documents')) {
+                $this->uploadDocuments($request, $case->id, auth()->id());
+            }
+
+            DB::commit();
+
+            return $this->successResponse(
+                $case->load(['creator', 'client', 'lawyers', 'parties', 'documents']),
+                'Created successfully',
+                201
+            );
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return $this->errorResponse('Creation failed', 500, $e->getMessage());
         }
+    }
     // 🔹 عرض قضية واحدة
     public function show($id)
     {
         $case = CaseModel::with([
             'creator',
-            'parties.user',
+            'client',
             'lawyers',
             'sessions',
             'documents',
             'judgments'
         ])->findOrFail($id);
 
-        return response()->json($case);
+        return $this->successResponse($case);
     }
 
     // 🔹 تحديث قضية
@@ -108,22 +103,46 @@ class CaseController extends Controller
     {
         $case = CaseModel::findOrFail($id);
 
-        $validated = $request->validate([
-            'case_number' => 'sometimes|unique:cases,case_number,' . $case->id,
-            'title' => 'sometimes|string|max:255',
-            'description' => 'nullable|string',
-            'type' => 'nullable|string',
-            'status' => 'nullable|string',
-            'court_name' => 'nullable|string',
-            'start_date' => 'nullable|date',
-        ]);
+        $rules = [
+            'case_number'  => 'sometimes|unique:cases,case_number,' . $case->id,
+            'title'        => 'sometimes|string|max:255',
+            'description'  => 'nullable|string',
+            'type'         => 'nullable|string',
+            'status'       => 'nullable|string',
+            'court_name'   => 'nullable|string',
+            'start_date'   => 'nullable|date',
+            'role_in_case' => 'nullable|string',
+            'side'         => 'nullable|string',
+            'client_id'    => 'nullable|exists:users,id',
+            'lawyer_id'    => 'nullable|exists:users,id',
+        ];
+
+        $validated = $request->validate($rules);
 
         $case->update($validated);
 
-        return response()->json([
-            'message' => 'Case updated successfully',
-            'data' => $case
-        ]);
+        if ($request->filled('client_id')) {
+            $case->parties()->whereHas('user.roles', fn ($q) => $q->where('name', 'client'))
+                ->delete();
+
+            $case->parties()->create([
+                'user_id'      => $request->client_id,
+                'role_in_case' => $request->role_in_case ?? 'plaintiff',
+            ]);
+        }
+
+        if ($request->filled('lawyer_id')) {
+            $case->lawyers()->detach();
+
+            $case->lawyers()->attach($request->lawyer_id, [
+                'side' => $request->side ?? 'plaintiff',
+            ]);
+        }
+
+        return $this->successResponse(
+            $case->fresh()->load(['creator', 'client', 'lawyers', 'parties']),
+            'Updated successfully'
+        );
     }
 
     // 🔹 حذف قضية
@@ -133,43 +152,85 @@ class CaseController extends Controller
 
         $case->delete();
 
-        return response()->json([
-            'message' => 'Case deleted successfully'
-        ]);
+        return $this->successResponse(null, 'Deleted successfully');
     }
 
 
-   public function forceClose($id)
-   {
-       $case = CaseModel::findOrFail($id);
-       $case->update(['status' => CaseModel::STATUS_CLOSED]);
-
-       return $this->successResponse($case, 'Case closed successfully');
-   }
-
-
-   public function overview()
+    public function forceClose($id)
     {
-        $cases = CaseModel::paginate(10);
+        $case = CaseModel::findOrFail($id);
+        $case->update(['status' => CaseModel::STATUS_CLOSED]);
 
+        return $this->successResponse($case, 'Case closed successfully');
+    }
+
+    public function uploadDocumentsToCase(Request $request, $id)
+    {
+        $case = CaseModel::findOrFail($id);
+
+        $request->validate([
+            'documents'   => 'required|array',
+            'documents.*' => 'required|file|max:51200',
+            'titles'      => 'nullable|array',
+            'titles.*'    => 'string|max:255',
+            'types'       => 'nullable|array',
+            'types.*'     => 'string|max:255',
+        ]);
+
+        $documents = $this->uploadDocuments($request, $case->id, auth()->id());
+
+        return $this->successResponse($documents, 'Documents uploaded successfully', 201);
+    }
+
+
+    public function overview()
+    {
         $allCases = CaseModel::get();
 
-        $totalCases     = $allCases->count();
-        $activeCases    = $allCases->where('status', CaseModel::STATUS_ACTIVE)->count();
-        $closedCases    = $allCases->where('status', CaseModel::STATUS_CLOSED)->count();
-        $pendingCases   = $allCases->where('status', CaseModel::STATUS_PENDING)->count();
-        $suspendedCases = $allCases->where('status', CaseModel::STATUS_SUSPENDED)->count();
-        $flaggedCases   = $allCases->where('status', CaseModel::STATUS_FLAGGED)->count();
-
         return $this->successResponse([
-            "cases" => $cases,
-            "totalCases" => $totalCases,
-            "activeCases" => $activeCases,
-            "closedCases" => $closedCases,
-            "pendingCases" => $pendingCases,
-            "suspendedCases" => $suspendedCases,
-            "flaggedCases" => $flaggedCases,
+            "totalCases"     => $allCases->count(),
+            "activeCases"    => $allCases->where('status', CaseModel::STATUS_ACTIVE)->count(),
+            "closedCases"    => $allCases->where('status', CaseModel::STATUS_CLOSED)->count(),
+            "pendingCases"   => $allCases->where('status', CaseModel::STATUS_PENDING)->count(),
+            "suspendedCases" => $allCases->where('status', CaseModel::STATUS_SUSPENDED)->count(),
+            "flaggedCases"   => $allCases->where('status', CaseModel::STATUS_FLAGGED)->count(),
         ]);
     }
 
+    public function dashboard()
+    {
+        return $this->successResponse([
+            "totalUsers"       => \App\Models\User::count(),
+            "activeCases"      => CaseModel::where('status', CaseModel::STATUS_ACTIVE)->count(),
+            "pendingApprovals" => CaseModel::where('status', CaseModel::STATUS_PENDING)->count(),
+            "closedCases"      => CaseModel::where('status', CaseModel::STATUS_CLOSED)->count(),
+        ]);
+    }
+
+    public function caseChart()
+    {
+        $months = collect();
+        for ($i = 2; $i >= 0; $i--) {
+            $months->push(now()->subMonths($i)->format('Y-m'));
+        }
+
+        $stats = CaseModel::select(
+            DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
+            DB::raw("COUNT(CASE WHEN status = '" . CaseModel::STATUS_ACTIVE . "' THEN 1 END) as active_cases"),
+            DB::raw("COUNT(CASE WHEN status = '" . CaseModel::STATUS_PENDING . "' THEN 1 END) as pending_cases"),
+        )
+            ->where('created_at', '>=', now()->subMonths(3)->startOfMonth())
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->keyBy('month');
+
+        $chart = $months->map(fn ($month) => [
+            'month'         => $month,
+            'active_cases'  => (int) ($stats->get($month)?->active_cases ?? 0),
+            'pending_cases' => (int) ($stats->get($month)?->pending_cases ?? 0),
+        ]);
+
+        return $this->successResponse($chart);
+    }
 }

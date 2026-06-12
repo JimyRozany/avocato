@@ -19,6 +19,12 @@ class CaseModel extends Model
 
     protected $guarded = [];
 
+    public function client()
+    {
+        return $this->hasOneThrough(User::class, CaseParty::class, 'case_id', 'id', 'id', 'user_id')
+            ->whereHas('roles', fn ($q) => $q->where('name', 'client'));
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');

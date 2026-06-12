@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreCaseRequest extends FormRequest
@@ -12,36 +11,32 @@ class StoreCaseRequest extends FormRequest
         return true;
     }
 
-   public function rules()
-{
-    $user = $this->user();
+    public function rules(): array
+    {
+        $user = $this->user();
 
-    $rules = [
-        'case_number' => 'required|unique:cases,case_number',
-        'title' => 'required|string|max:255',
-        'description' => 'nullable|string',
-        'type' => 'nullable|string',
-        'court_name' => 'nullable|string',
-        'start_date' => 'nullable|date',
-        'documents' => 'nullable|array',
-        'documents.*' => 'file|max:2048',
-    ];
+        $rules = [
+            'case_number'  => 'required|unique:cases,case_number',
+            'title'        => 'required|string|max:255',
+            'description'  => 'nullable|string',
+            'type'         => 'nullable|string',
+            'court_name'   => 'nullable|string',
+            'start_date'   => 'nullable|date',
+            'role_in_case' => 'nullable|string',
+            'side'         => 'nullable|string',
+            'documents'    => 'nullable|array',
+            'documents.*'  => 'file|max:51200',
+        ];
 
-    if ($user->hasRole('avocato')) {
-        $rules['client_id'] = 'required|exists:users,id';
-        $rules['role_in_case'] = 'nullable|string';
-    } elseif ($user->hasRole('client')) {
-        $rules['lawyer_id'] = 'required|exists:users,id';
-        $rules['side'] = 'nullable|string';
-    } else {
-        $rules['parties'] = 'nullable|array';
-        $rules['parties.*.user_id'] = 'required|exists:users,id';
-        $rules['parties.*.role_in_case'] = 'required|string';
-        $rules['lawyers'] = 'nullable|array';
-        $rules['lawyers.*.lawyer_id'] = 'required|exists:users,id';
-        $rules['lawyers.*.side'] = 'nullable|string';
+        if ($user->hasRole('admin')) {
+            $rules['client_id'] = 'required|exists:users,id';
+            $rules['lawyer_id'] = 'required|exists:users,id';
+        } elseif ($user->hasRole('avocato')) {
+            $rules['client_id'] = 'required|exists:users,id';
+        } elseif ($user->hasRole('client')) {
+            $rules['lawyer_id'] = 'required|exists:users,id';
+        }
+
+        return $rules;
     }
-
-    return $rules;
-}
 }
