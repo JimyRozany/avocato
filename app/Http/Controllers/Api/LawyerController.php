@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\CaseModel;
+use App\Models\CaseParty;
 use App\Models\User;
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
@@ -172,6 +173,28 @@ class LawyerController extends Controller
                 'bar_association_number', 'office_location', 'years_of_experience', 'specialty', 'bio', 'rate'
             ]),
             'cases'  => $cases,
+        ]);
+    }
+
+    public function getLawyerClients($lawyerId)
+    {
+        $lawyer = User::role('avocato')->findOrFail($lawyerId);
+
+        $caseIds = $lawyer->casesAsLawyer()->pluck('cases.id');
+
+        $clientIds = CaseParty::whereIn('case_id', $caseIds)
+            ->whereHas('user.roles', fn ($q) => $q->where('name', 'client'))
+            ->pluck('user_id')
+            ->unique();
+
+        $clients = User::whereIn('id', $clientIds)
+            ->withCount(['caseParticipations as shared_cases' => fn ($q) => $q->whereIn('case_id', $caseIds)])
+            ->latest()
+            ->get();
+
+        return $this->successResponse([
+            'lawyer'  => $lawyer->only(['id', 'name', 'image']),
+            'clients' => $clients,
         ]);
     }
 }

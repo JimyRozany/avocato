@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCaseRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 use App\Models\CaseModel;
 use App\Traits\ApiResponse;
@@ -103,6 +105,9 @@ class CaseController extends Controller
     {
         $case = CaseModel::findOrFail($id);
 
+
+        // return response()->json($request->all(),200);
+
         $rules = [
             'case_number'  => 'sometimes|unique:cases,case_number,' . $case->id,
             'title'        => 'sometimes|string|max:255',
@@ -119,7 +124,9 @@ class CaseController extends Controller
 
         $validated = $request->validate($rules);
 
-        $case->update($validated);
+        $case->update(Arr::only($validated, [
+            'case_number', 'title', 'description', 'type', 'status', 'court_name', 'start_date'
+        ]));
 
         if ($request->filled('client_id')) {
             $case->parties()->whereHas('user.roles', fn ($q) => $q->where('name', 'client'))
@@ -162,6 +169,32 @@ class CaseController extends Controller
         $case->update(['status' => CaseModel::STATUS_CLOSED]);
 
         return $this->successResponse($case, 'Case closed successfully');
+    }
+
+    public function changeStatus(Request $request, $id)
+    {
+        $case = CaseModel::findOrFail($id);
+
+        $validated = $request->validate([
+            'status' => [
+                'required',
+                'string',
+                Rule::in([
+                    CaseModel::STATUS_PENDING,
+                    CaseModel::STATUS_ACTIVE,
+                    CaseModel::STATUS_SUSPENDED,
+                    CaseModel::STATUS_FLAGGED,
+                    CaseModel::STATUS_CLOSED,
+                ]),
+            ],
+        ]);
+
+        $case->update(['status' => $validated['status']]);
+
+        return $this->successResponse(
+            $case->fresh()->load(['client', 'lawyers']),
+            'Status updated successfully'
+        );
     }
 
     public function uploadDocumentsToCase(Request $request, $id)

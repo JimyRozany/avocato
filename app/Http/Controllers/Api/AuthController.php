@@ -27,7 +27,7 @@ class AuthController extends Controller
 
         try {
             $validated['password'] = Hash::make($validated['password']);
-            $validated['is_active'] = $validated['type'] === 'client';
+            $validated['is_active'] = false;
             $validated['rate'] = $validated['type'] === 'avocato' ? rand(50, 200) : null;
 
             $user = User::create($validated);

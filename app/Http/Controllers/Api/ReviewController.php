@@ -27,6 +27,33 @@ class ReviewController extends Controller
         return $this->successResponse($query->latest()->get());
     }
 
+    public function userReviews($userId)
+    {
+        $user = \App\Models\User::findOrFail($userId);
+
+        $reviews = Review::with(['reviewer:id,name,image'])
+            ->where('reviewed_id', $userId)
+            ->latest()
+            ->get()
+            ->map(function ($review) {
+                return [
+                    'id'         => $review->id,
+                    'rating'     => $review->rating,
+                    'comment'    => $review->comment,
+                    'created_at' => $review->created_at,
+                    'reviewer'   => $review->reviewer,
+                ];
+            });
+
+
+
+        return $this->successResponse([
+            'user'     => $user->only(['id', 'name', 'image']),
+            'reviews'  => $reviews
+
+        ]);
+    }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
@@ -67,11 +94,11 @@ class ReviewController extends Controller
             }
 
             $sharedCase = CaseModel::where(function ($q) use ($user, $validated) {
-                $q->whereHas('parties', fn ($pq) => $pq->where('user_id', $user->id))
-                    ->whereHas('lawyers', fn ($lq) => $lq->where('case_lawyers.lawyer_id', $validated['reviewed_id']));
+                $q->whereHas('parties', fn($pq) => $pq->where('user_id', $user->id))
+                    ->whereHas('lawyers', fn($lq) => $lq->where('case_lawyers.lawyer_id', $validated['reviewed_id']));
             })->orWhere(function ($q) use ($user, $validated) {
-                $q->whereHas('parties', fn ($pq) => $pq->where('user_id', $validated['reviewed_id']))
-                    ->whereHas('lawyers', fn ($lq) => $lq->where('case_lawyers.lawyer_id', $user->id));
+                $q->whereHas('parties', fn($pq) => $pq->where('user_id', $validated['reviewed_id']))
+                    ->whereHas('lawyers', fn($lq) => $lq->where('case_lawyers.lawyer_id', $user->id));
             })->first();
 
             if (!$sharedCase) {
@@ -94,10 +121,18 @@ class ReviewController extends Controller
 
     public function show($id)
     {
-        $review = Review::with(['reviewer:id,name,image', 'reviewed:id,name,image', 'case'])
+        $review = Review::with(['reviewer:id,name,image', 'reviewed:id,name,image'])
             ->findOrFail($id);
 
-        return $this->successResponse($review);
+        return $this->successResponse($review->only([
+            'id',
+            'rating',
+            'comment',
+            'created_at',
+            'reviewer',
+            "reviewed"
+
+        ]));
     }
 
     public function update(Request $request, $id)

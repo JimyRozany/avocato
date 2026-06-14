@@ -366,6 +366,7 @@ GET  /api/me             - جلب بيانات المستخدم الحالي
 
 ### التقييمات (Reviews):
 GET    /api/reviews                  - قائمة التقييمات (مع فلتر reviewed_id, reviewer_id)
+GET    /api/reviews/user/{userId}    - تقييمات مستخدم معين (مع average + total)
 POST   /api/reviews                  - إنشاء تقييم (rating 1-5, reviewed_id, comment اختياري)
 GET    /api/reviews/{id}             - عرض تقييم
 PUT    /api/reviews/{id}             - تعديل تقييم (فقط صاحبه أو الأدمن)
@@ -380,6 +381,7 @@ GET    /api/clients/{id}               - عرض عميل
 PUT    /api/clients/{id}               - تحديث عميل
 DELETE /api/clients/{id}               - حذف عميل
 GET    /api/clients/{id}/show-overview  - لوحة إحصائيات عميل معين (total, pending, active, closed)
+GET    /api/clients/{id}/cases          - جلب جميع قضايا عميل معين (مع client, lawyers, creator)
 GET    /api/clients/overview            - إحصائيات عامة للعملاء (total, active, pending, suspended)
 PATCH  /api/clients/{id}/toggle-status - تفعيل/تعطيل عميل
 POST   /api/clients      - إنشاء عميل (❌ الميثود غير مطبقة)
@@ -445,6 +447,7 @@ GET    /api/cases/{id}            - عرض قضية
 PUT    /api/cases/{id}            - تحديث قضية
 DELETE /api/cases/{id}            - حذف قضية
 PATCH /api/cases/{id}/force-close - إغلاق قضية قسرياً (**admin only**)
+PATCH /api/cases/{id}/status    - تغيير حالة القضية (pending/active/suspended/flagged/closed)
 POST   /api/cases/{id}/documents   - رفع مستندات إلى قضية (admin & avocato)
 
 GET    /api/case-sessions         - قائمة الجلسات
@@ -452,6 +455,7 @@ POST   /api/case-sessions         - إنشاء جلسة جديدة (مع رفع 
 GET    /api/case-sessions/{id}    - عرض جلسة
 PUT    /api/case-sessions/{id}    - تحديث جلسة (مع رفع ملف)
 DELETE /api/case-sessions/{id}    - حذف جلسة
+GET    /api/case-sessions/case/{caseId} - جلب جميع جلسات قضية معينة
 
 GET    /api/lawyers*              - قائمة المحامين (**عامة - بدون مصادقة**)
 POST   /api/lawyers               - إنشاء محامٍ جديد
@@ -462,6 +466,7 @@ GET    /api/lawyers/overview      - لوحة إحصائيات المحامي (to
 GET    /api/lawyers/statistics    - إحصائيات عامة للمحامين (total, active, pending, suspended)
 PATCH  /api/lawyers/{id}/toggle-status  - تفعيل/تعطيل محامٍ
 GET    /api/lawyers/{id}/cases    - قضايا محامٍ معين
+GET    /api/lawyers/{id}/clients  - عملاء محامٍ معين (المشتركون في نفس القضايا)
 
 GET    /api/legals                - قائمة القوانين
 POST   /api/legals                - إنشاء قانون جديد
@@ -634,6 +639,10 @@ php artisan test
 21. ✅ **Platform Dashboard** - `GET /api/dashboard` يعيد Total Users, Active Cases, Pending Approvals, Closed Cases
 22. ✅ **Case Chart** - `GET /api/case-chart` يعيد active + pending cases لكل شهر في آخر 3 أشهر
 23. ✅ **Reviews System** - Model + Migration + Controller + Endpoints كامل مع صلاحيات (client↔lawyer بشرط قضية مشتركة، admin لأي أحد)
+24. ✅ **Client Cases** - `GET /api/clients/{id}/cases` يعيد جميع قضايا عميل معين
+25. ✅ **Lawyer Clients** - `GET /api/lawyers/{id}/clients` يعيد جميع عملاء محامٍ معين
+26. ✅ **Sessions by Case** - `GET /api/case-sessions/case/{caseId}` يعيد جميع جلسات قضية معينة
+27. ✅ **Change Case Status** - `PATCH /api/cases/{id}/status` تغيير حالة القضية مع التحقق من القيم المسموحة
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)

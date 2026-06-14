@@ -31,9 +31,10 @@ Route::middleware(['auth:api', 'role:admin|client'])->group(function () {
         Route::get('clients/{id}/show-overview', [ClientController::class, 'clientOverview']);
 
   Route::get('clients/overview', [ClientController::class, 'overview']);
+    Route::get('clients/{id}/cases', [ClientController::class, 'getClientCases']);
     Route::get('warning-histories/client/{clientId}', [WarningHistoryController::class, 'getByClient']);
 
-
+ Route::apiResource('clients', ClientController::class)->except("index");
 });
 
 
@@ -42,10 +43,30 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('logout',[AuthController::class , 'logout']);
     Route::get('me',[AuthController::class , 'me']);
 
+    Route::get("clients" , [ClientController::class , "index"]);
+
+    Route::post('cases', [CaseController::class, 'store']);
+    Route::get('cases/{id}', [CaseController::class, 'show']);
+    Route::put('cases/{id}', [CaseController::class, 'update']);
+    Route::post('cases/{id}/documents', [CaseController::class, 'uploadDocumentsToCase']);
+    Route::get('cases-overview', [CaseController::class , "overview"]);
+
+    // Route::get('case-sessions' , [CaseSessionController::class , 'index']) ;
+    Route::get('case-sessions/case/{caseId}', [CaseSessionController::class, 'getByCase']);
+    Route::get('case-sessions/{caseSessionId}', [CaseSessionController::class, 'show']);
+
+    
+     /**
+     * ================== Dashboard Routes ===================
+     */
+    Route::get('dashboard', [CaseController::class, 'dashboard']);
+    Route::get('case-chart', [CaseController::class, 'caseChart']);
+
     /**
      * ================== Review Routes ===================
      */
     Route::get('reviews', [ReviewController::class, 'index']);
+    Route::get('reviews/user/{userId}', [ReviewController::class, 'userReviews']);
     Route::post('reviews', [ReviewController::class, 'store']);
     Route::get('reviews/{id}', [ReviewController::class, 'show']);
     Route::put('reviews/{id}', [ReviewController::class, 'update']);
@@ -57,17 +78,14 @@ Route::middleware('auth:sanctum')->group(function () {
       Route::middleware('role:admin')->group(function () {
         Route::patch('cases/{id}/force-close', [CaseController::class, 'forceClose']);
         Route::patch('clients/{id}/toggle-status', [ClientController::class, 'toggleStatus']);
-        Route::apiResource('clients', ClientController::class);
+       
       
 
     });
 
 });
 
-// ============= Client can create a case =============
-Route::middleware(['auth:api', 'role:client'])->group(function () {
-    Route::post('cases', [CaseController::class, 'store']);
-});
+
 
 // ============= Public Routes =============
 Route::get('lawyers', [LawyerController::class, 'index']);
@@ -80,11 +98,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('contact-us/{id}', [ContactUsController::class, 'show']);
     Route::delete('contact-us/{id}', [ContactUsController::class, 'destroy']);
 
-    /**
-     * ================== Dashboard Routes ===================
-     */
-    Route::get('dashboard', [CaseController::class, 'dashboard']);
-    Route::get('case-chart', [CaseController::class, 'caseChart']);
+   
 
     /**
      * ================== Roles & Permissions Routes ===================
@@ -103,15 +117,16 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
     /**
      * ================== Case Routes ===================
      */
-    Route::get('cases-overview', [CaseController::class , "overview"]);
-    Route::apiResource('cases', CaseController::class);
-    Route::post('cases/{id}/documents', [CaseController::class, 'uploadDocumentsToCase']);
+    
+    Route::apiResource('cases', CaseController::class)->except('store' ,'show' ,'update');
+    Route::patch('cases/{id}/status', [CaseController::class, 'changeStatus']);
+    
 
     /**
      * ================== Case Session Routes ===================
      */
     Route::match(['put', 'post'], '/case-sessions/{id}', [CaseSessionController::class, 'update']);
-    Route::apiResource('/case-sessions', CaseSessionController::class);
+    Route::apiResource('case-sessions', CaseSessionController::class)->except("index" , 'show');
 
     /**
      * ================== Lawyer Routes ===================
@@ -120,6 +135,7 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
     Route::get('lawyers/overview', [LawyerController::class, 'overview']);
     Route::patch('lawyers/{id}/toggle-status', [LawyerController::class, 'toggleStatus']);
     Route::get('lawyers/{id}/cases', [LawyerController::class, 'getLawyerCases']);
+    Route::get('lawyers/{id}/clients', [LawyerController::class, 'getLawyerClients']);
     Route::apiResource('lawyers', LawyerController::class)->except('index');
 
     /**
@@ -157,4 +173,10 @@ Route::middleware(['auth:api', 'role:avocato'])->group(function () {
 
 
 
-   
+//    Route::get("check-role" , function(){
+
+//     $user = auth()->user();
+
+//     return response()->json($user
+//  , 200);
+//    })->middleware("auth:sanctum");

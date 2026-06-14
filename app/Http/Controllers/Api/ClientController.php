@@ -53,7 +53,7 @@ class ClientController extends Controller
 
         $validated['password'] = Hash::make($validated['password']);
         $validated['type'] = 'client';
-        $validated['is_active'] = true;
+        $validated['is_active'] = false;
 
         $client = User::create($validated);
 
@@ -132,4 +132,20 @@ class ClientController extends Controller
             'closedCases'  => $cases->where('status', CaseModel::STATUS_CLOSED)->count(),
         ]);
     }
+
+    public function getClientCases($id)
+    {
+        $client = User::where('type', 'client')->findOrFail($id);
+
+        $caseIds = $client->caseParticipations()->pluck('case_id');
+
+        $cases = CaseModel::with(['client', 'lawyers:id,name,image', 'creator:id,name'])
+            ->whereIn('id', $caseIds)
+            ->latest()
+            ->get();
+
+        return $this->successResponse($cases);
+    }
+
+    
 }

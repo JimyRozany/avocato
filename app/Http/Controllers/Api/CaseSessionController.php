@@ -18,7 +18,7 @@ class CaseSessionController extends Controller
    
     public function index()
     {
-        $sessions = CaseSession::latest()->paginate(10);
+        $sessions = CaseSession::latest()->get();
 
         return $this->successResponse($sessions);
     }
@@ -27,7 +27,7 @@ class CaseSessionController extends Controller
     {
         $validated = $request->validate([
             'case_id' => 'required|exists:cases,id',
-            'session_date' => 'required|date',
+            'session_date' => 'nullable|date',
             'decision' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'next_session_date' => 'nullable|date|after_or_equal:session_date',
@@ -39,6 +39,7 @@ class CaseSessionController extends Controller
         DB::beginTransaction();
 
         try {
+             $validated['session_date'] = now();
             $session = CaseSession::create($validated);
 
             // 👇 استخدام الـ Trait
@@ -51,7 +52,7 @@ class CaseSessionController extends Controller
 
             DB::commit();
 
-            return $this->successResponse($session ,'Created successfully' ,201 );
+            return $this->successResponse($session->load('documents') ,'Created successfully' ,201 );
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -63,7 +64,7 @@ class CaseSessionController extends Controller
     
     public function show($id)
     {
-        $session = CaseSession::findOrFail($id);
+        $session = CaseSession::with('documents')->findOrFail($id);
 
         return $this->successResponse($session);
     }
@@ -75,7 +76,7 @@ class CaseSessionController extends Controller
         
         $validated = $request->validate([
             'case_id' => 'required|exists:cases,id',
-            'session_date' => 'required|date',
+            'session_date' => 'nullable|date',
             'decision' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
             'next_session_date' => 'nullable|date|after_or_equal:session_date',
@@ -103,7 +104,7 @@ class CaseSessionController extends Controller
 
             DB::commit();
 
-            return $this->successResponse($session ,  'Updated successfully') ; 
+            return $this->successResponse($session->load('documents') ,  'Updated successfully') ; 
             
            
         } catch (\Exception $e) {
@@ -121,5 +122,15 @@ class CaseSessionController extends Controller
         $session->delete();
             return $this->successResponse("",'Deleted successfully') ; 
 
+    }
+
+    public function getByCase($caseId)
+    {
+        $sessions = CaseSession::with('documents')
+            ->where('case_id', $caseId)
+            ->latest()
+            ->get();
+
+        return $this->successResponse($sessions);
     }
 }
