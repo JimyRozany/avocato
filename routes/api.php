@@ -45,8 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::get("clients" , [ClientController::class , "index"]);
 
+    Route::get('cases', [CaseController::class, 'index']);
     Route::post('cases', [CaseController::class, 'store']);
     Route::get('cases/{id}', [CaseController::class, 'show']);
+    Route::delete('cases/{id}', [CaseController::class, 'destroy']);
     Route::put('cases/{id}', [CaseController::class, 'update']);
     Route::post('cases/{id}/documents', [CaseController::class, 'uploadDocumentsToCase']);
     Route::get('cases-overview', [CaseController::class , "overview"]);
@@ -118,7 +120,6 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
      * ================== Case Routes ===================
      */
     
-    Route::apiResource('cases', CaseController::class)->except('store' ,'show' ,'update');
     Route::patch('cases/{id}/status', [CaseController::class, 'changeStatus']);
     
 

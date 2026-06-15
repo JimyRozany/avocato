@@ -12,12 +12,18 @@ class CaseSession extends Model
         'session_date',
         'decision',
         'notes',
-        'next_session_date'
+        'next_session_date',
+        'created_by',
     ];
 
     public function case()
     {
         return $this->belongsTo(CaseModel::class);
+    }
+
+    public function creator()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function documents()

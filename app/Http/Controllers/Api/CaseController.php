@@ -76,7 +76,7 @@ class CaseController extends Controller
             DB::commit();
 
             return $this->successResponse(
-                $case->load(['creator', 'client', 'lawyers', 'parties', 'documents']),
+                $case->load(['creator', 'client', 'lawyers', 'parties', 'documents.uploader']),
                 'Created successfully',
                 201
             );
@@ -93,7 +93,7 @@ class CaseController extends Controller
             'client',
             'lawyers',
             'sessions',
-            'documents',
+            'documents.uploader',
             'judgments'
         ])->findOrFail($id);
 
@@ -125,11 +125,17 @@ class CaseController extends Controller
         $validated = $request->validate($rules);
 
         $case->update(Arr::only($validated, [
-            'case_number', 'title', 'description', 'type', 'status', 'court_name', 'start_date'
+            'case_number',
+            'title',
+            'description',
+            'type',
+            'status',
+            'court_name',
+            'start_date'
         ]));
 
         if ($request->filled('client_id')) {
-            $case->parties()->whereHas('user.roles', fn ($q) => $q->where('name', 'client'))
+            $case->parties()->whereHas('user.roles', fn($q) => $q->where('name', 'client'))
                 ->delete();
 
             $case->parties()->create([
@@ -147,7 +153,7 @@ class CaseController extends Controller
         }
 
         return $this->successResponse(
-            $case->fresh()->load(['creator', 'client', 'lawyers', 'parties']),
+            $case->fresh()->load(['creator', 'client', 'lawyers', 'parties', 'documents.uploader']),
             'Updated successfully'
         );
     }
@@ -168,7 +174,7 @@ class CaseController extends Controller
         $case = CaseModel::findOrFail($id);
         $case->update(['status' => CaseModel::STATUS_CLOSED]);
 
-        return $this->successResponse($case, 'Case closed successfully');
+        return $this->successResponse($case->fresh()->load(['creator', 'client', 'lawyers', 'parties', 'documents.uploader']), 'Case closed successfully');
     }
 
     public function changeStatus(Request $request, $id)
@@ -192,7 +198,7 @@ class CaseController extends Controller
         $case->update(['status' => $validated['status']]);
 
         return $this->successResponse(
-            $case->fresh()->load(['client', 'lawyers']),
+            $case->fresh()->load(['creator', 'client', 'lawyers', 'parties', 'documents.uploader']),
             'Status updated successfully'
         );
     }
@@ -211,6 +217,10 @@ class CaseController extends Controller
         ]);
 
         $documents = $this->uploadDocuments($request, $case->id, auth()->id());
+        foreach ($documents as $document) {
+            $document->load('uploader');
+        }
+
 
         return $this->successResponse($documents, 'Documents uploaded successfully', 201);
     }
@@ -258,7 +268,7 @@ class CaseController extends Controller
             ->get()
             ->keyBy('month');
 
-        $chart = $months->map(fn ($month) => [
+        $chart = $months->map(fn($month) => [
             'month'         => $month,
             'active_cases'  => (int) ($stats->get($month)?->active_cases ?? 0),
             'pending_cases' => (int) ($stats->get($month)?->pending_cases ?? 0),

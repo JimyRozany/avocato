@@ -40,6 +40,7 @@ class CaseSessionController extends Controller
 
         try {
              $validated['session_date'] = now();
+            $validated['created_by'] = auth()->id();
             $session = CaseSession::create($validated);
 
             // 👇 استخدام الـ Trait
@@ -52,7 +53,7 @@ class CaseSessionController extends Controller
 
             DB::commit();
 
-            return $this->successResponse($session->load('documents') ,'Created successfully' ,201 );
+            return $this->successResponse($session->load('documents', 'creator') ,'Created successfully' ,201 );
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -64,7 +65,8 @@ class CaseSessionController extends Controller
     
     public function show($id)
     {
-        $session = CaseSession::with('documents')->findOrFail($id);
+                // return response()->json("dddddddddd" , 200) ;
+        $session = CaseSession::with('documents', 'creator')->findOrFail($id);
 
         return $this->successResponse($session);
     }
@@ -104,7 +106,7 @@ class CaseSessionController extends Controller
 
             DB::commit();
 
-            return $this->successResponse($session->load('documents') ,  'Updated successfully') ; 
+            return $this->successResponse($session->load('documents', 'creator') ,  'Updated successfully') ; 
             
            
         } catch (\Exception $e) {
@@ -126,7 +128,7 @@ class CaseSessionController extends Controller
 
     public function getByCase($caseId)
     {
-        $sessions = CaseSession::with('documents')
+        $sessions = CaseSession::with('documents', 'creator')
             ->where('case_id', $caseId)
             ->latest()
             ->get();

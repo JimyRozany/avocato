@@ -195,6 +195,12 @@ tests/
 | decision | text | القرار |
 | notes | text | ملاحظات |
 | next_session_date | datetime | تاريخ الجلسة القادمة |
+| created_by | FK (nullable) | منشئ الجلسة (users) |
+
+**العلاقات:**
+- `case()` - القضية المرتبطة
+- `creator()` - منشئ الجلسة
+- `documents()` - مستندات الجلسة
 
 ### 5. Document (المستندات) - `documents`
 | الحقل | النوع | الوصف |
