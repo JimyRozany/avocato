@@ -161,7 +161,7 @@ class LawyerController extends Controller
         $lawyer = User::role('avocato')->findOrFail($lawyerId);
 
         $cases = $lawyer->casesAsLawyer()
-            ->with(['creator', 'parties.user', 'sessions'])
+            ->with(['creator', 'parties.user', 'sessions' ,'client', 'lawyers'])
             ->when($request->status, function ($q) use ($request) {
                 $q->where('status', $request->status);
             })

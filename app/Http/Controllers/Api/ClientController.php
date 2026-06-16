@@ -139,7 +139,7 @@ class ClientController extends Controller
 
         $caseIds = $client->caseParticipations()->pluck('case_id');
 
-        $cases = CaseModel::with(['client', 'lawyers:id,name,image', 'creator:id,name'])
+        $cases = CaseModel::with(['client', 'lawyers:id,name,image', 'creator:id,name' ,'lawyers'])
             ->whereIn('id', $caseIds)
             ->latest()
             ->get();

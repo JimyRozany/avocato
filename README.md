@@ -72,6 +72,7 @@ app/
 │   │   │   ├── ClientController.php        # ⚡ إدارة العملاء (CRUD كامل + overview)
 │   │   │   ├── LawyerController.php        # ⚡ إدارة المحامين (CRUD كامل)
 │   │   │   ├── LegalController.php         # ⚡ إدارة القوانين (CRUD كامل)
+│   │   │   ├── LegalBotController.php      # 💬 شات بوت الاستفسارات القانونية
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
 │   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
 │   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
@@ -311,6 +312,7 @@ tests/
 | **ملفات المحامي (Lawyer Documents)** | Model + Migration + Controller + CRUD مع رفع ملفات وصور | ✅ مكتمل |
 | **إنذارات المحامي (Warning History)** | Model + Migration + Controller + CRUD مع توليد ID تلقائي (WRN-xxxx) | ✅ مكتمل |
 | **Contact Us (رسائل التواصل)** | Model + Migration + Controller + إرسال عام + عرض/حذف admin | ✅ مكتمل |
+| **💬 شات بوت القوانين (Legal Bot)** | بحث ذكي في القوانين المسجلة (FULLTEXT + LIKE fallback) مع tokenizer عربي | ✅ مكتمل |
 
 ### 🔄 الميزات المنفذة جزئياً
 
@@ -473,6 +475,8 @@ GET    /api/lawyers/statistics    - إحصائيات عامة للمحامين (
 PATCH  /api/lawyers/{id}/toggle-status  - تفعيل/تعطيل محامٍ
 GET    /api/lawyers/{id}/cases    - قضايا محامٍ معين
 GET    /api/lawyers/{id}/clients  - عملاء محامٍ معين (المشتركون في نفس القضايا)
+
+POST   /api/legal-bot/ask       - 💬 شات بوت الاستفسارات القانونية (بحث في القوانين)
 
 GET    /api/legals                - قائمة القوانين
 POST   /api/legals                - إنشاء قانون جديد
@@ -649,6 +653,7 @@ php artisan test
 25. ✅ **Lawyer Clients** - `GET /api/lawyers/{id}/clients` يعيد جميع عملاء محامٍ معين
 26. ✅ **Sessions by Case** - `GET /api/case-sessions/case/{caseId}` يعيد جميع جلسات قضية معينة
 27. ✅ **Change Case Status** - `PATCH /api/cases/{id}/status` تغيير حالة القضية مع التحقق من القيم المسموحة
+28. ✅ **💬 شات بوت الاستفسارات القانونية** - `POST /api/legal-bot/ask` بحث ذكي (FULLTEXT + LIKE fallback) مع tokenizer عربي
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)
