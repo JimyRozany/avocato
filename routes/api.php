@@ -33,7 +33,7 @@ Route::middleware(['auth:api', 'role:admin|client'])->group(function () {
 
     Route::get('clients/overview', [ClientController::class, 'overview']);
     Route::get('clients/{id}/cases', [ClientController::class, 'getClientCases']);
-    Route::get('warning-histories/client/{clientId}', [WarningHistoryController::class, 'getByClient']);
+   
 
     Route::apiResource('clients', ClientController::class)->except("index" ,'show');
 });
@@ -58,6 +58,10 @@ Route::middleware('auth:sanctum')->group(function () {
       Route::get('clients/{id}', [ClientController::class , "show"]);
        Route::get('clients/{id}/show-overview', [ClientController::class, 'clientOverview']);
     Route::patch('warning-histories/{id}/toggle-status', [WarningHistoryController::class, 'toggleStatus']);
+
+     Route::get('warning-histories/client/{clientId}', [WarningHistoryController::class, 'getByClient']);
+    Route::get('warning-histories/lawyer/{lawyerId}', [WarningHistoryController::class, 'getByLawyer']);
+
 
 
     // Route::get('case-sessions' , [CaseSessionController::class , 'index']) ;
@@ -158,7 +162,6 @@ Route::middleware(['auth:api', 'role:admin|avocato'])->group(function () {
     /**
      * ================== Warning History Routes ===================
      */
-    Route::get('warning-histories/lawyer/{lawyerId}', [WarningHistoryController::class, 'getByLawyer']);
     Route::apiResource('warning-histories', WarningHistoryController::class);
 });
 
