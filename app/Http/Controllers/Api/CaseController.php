@@ -228,10 +228,10 @@ class CaseController extends Controller
 
     public function overview()
     {
-        $allCases = CaseModel::get();
+        $allCases = CaseModel::all();
 
         return $this->successResponse([
-            "totalCases"     => $allCases->count(),
+            "totalCases"     => $allCases->where('deleted_at' , null)->count(),
             "activeCases"    => $allCases->where('status', CaseModel::STATUS_ACTIVE)->count(),
             "closedCases"    => $allCases->where('status', CaseModel::STATUS_CLOSED)->count(),
             "pendingCases"   => $allCases->where('status', CaseModel::STATUS_PENDING)->count(),

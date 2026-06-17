@@ -124,9 +124,13 @@ class ClientController extends Controller
         $client = User::where('type', 'client')->findOrFail($id);
 
         $cases = $client->caseParticipations()->with('case')->get()->pluck('case');
-
+        $total = 0 ;
+         foreach($cases as $case){
+            if($case)
+                $total++;
+        }
         return $this->successResponse([
-            'totalCases'   => $cases->count(),
+            'totalCases'   => $total,
             'pendingCases' => $cases->where('status', CaseModel::STATUS_PENDING)->count(),
             'activeCases'  => $cases->where('status', CaseModel::STATUS_ACTIVE)->count(),
             'closedCases'  => $cases->where('status', CaseModel::STATUS_CLOSED)->count(),
