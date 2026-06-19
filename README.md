@@ -72,7 +72,7 @@ app/
 │   │   │   ├── ClientController.php        # ⚡ إدارة العملاء (CRUD كامل + overview)
 │   │   │   ├── LawyerController.php        # ⚡ إدارة المحامين (CRUD كامل)
 │   │   │   ├── LegalController.php         # ⚡ إدارة القوانين (CRUD كامل)
-│   │   │   ├── LegalBotController.php      # 💬 شات بوت الاستفسارات القانونية
+│   │   │   ├── LegalBotController.php      # 💬 شات بوت الاستفسارات القانونية (RAG)
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
 │   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
 │   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/تحديث/إغلاق/حذف للمشرف)
@@ -80,8 +80,10 @@ app/
 │   │   │   ├── RolePermissionController.php # ⚡ إدارة الأدوار والصلاحيات (admin only)
 │   │   │   └── CaseController_.php         # ❌ ملف قديم - غير مستخدم
 │   │   └── Controller.php                  # الـ Base Controller
-│   └── Requests/
-│       └── StoreCaseRequest.php            # ✅ قواعد التحقق الوحيدة (لإنشاء القضايا)
+│   ├── Requests/
+│   │   └── StoreCaseRequest.php            # ✅ قواعد التحقق الوحيدة (لإنشاء القضايا)
+│   └── Services/
+│       └── LegalBotService.php             # 💬 منطق RAG (embedding, similarity, GPT)```
 ├── Models/
 │   ├── User.php                            # نموذج المستخدم (مع صلاحيات Sanctum)
 │   ├── CaseModel.php                       # نموذج القضية
@@ -95,6 +97,8 @@ app/
 │   ├── WarningHistory.php                  # إنذارات المحامي
 │   ├── ContactUs.php                       # رسائل التواصل
 │   └── Review.php                          # التقييمات (بين المحامي والعميل والأدمن)
+├── Observers/
+│   └── LegalObserver.php                   # إنشاء embedding تلقائياً عند حفظ قانون
 ├── Providers/
 │   └── AppServiceProvider.php
 └── Traits/
@@ -237,6 +241,8 @@ tests/
 | name | string | اسم القانون |
 | rule_number | string | رقم القاعدة (unique) |
 | rule_description | text | وصف القاعدة |
+| full_text | longText (nullable) | النص القانوني الكامل (مواد، تفاصيل) |
+| embedding | json (nullable) | متجه رقمي للبحث الدلالي (RAG) |
 
 ### 9. LawyerDocument (ملفات المحامي) - `lawyer_documents`
 | الحقل | النوع | الوصف |
@@ -314,7 +320,7 @@ tests/
 | **ملفات المحامي (Lawyer Documents)** | Model + Migration + Controller + CRUD مع رفع ملفات وصور | ✅ مكتمل |
 | **إنذارات المحامي (Warning History)** | Model + Migration + Controller + CRUD مع توليد ID تلقائي (WRN-xxxx) | ✅ مكتمل |
 | **Contact Us (رسائل التواصل)** | Model + Migration + Controller + إرسال عام + عرض/حذف admin | ✅ مكتمل |
-| **💬 شات بوت القوانين (Legal Bot)** | بحث ذكي في القوانين المسجلة (FULLTEXT + LIKE fallback) مع tokenizer عربي | ✅ مكتمل |
+| **💬 شات بوت القوانين (Legal Bot)** | RAG (OpenAI Embeddings + GPT-4o-mini) + بحث FULLTEXT كـ fallback مع tokenizer عربي | ✅ مكتمل |
 
 ### 🔄 الميزات المنفذة جزئياً
 
@@ -657,7 +663,10 @@ php artisan test
 25. ✅ **Lawyer Clients** - `GET /api/lawyers/{id}/clients` يعيد جميع عملاء محامٍ معين
 26. ✅ **Sessions by Case** - `GET /api/case-sessions/case/{caseId}` يعيد جميع جلسات قضية معينة
 27. ✅ **Change Case Status** - `PATCH /api/cases/{id}/status` تغيير حالة القضية مع التحقق من القيم المسموحة
-28. ✅ **💬 شات بوت الاستفسارات القانونية** - `POST /api/legal-bot/ask` بحث ذكي (FULLTEXT + LIKE fallback) مع tokenizer عربي
+28. ✅ **💬 شات بوت الاستفسارات القانونية (RAG)** - `POST /api/legal-bot/ask` بحث دلالي بـ OpenAI Embeddings + إجابة بـ GPT-4o-mini + fallback إلى FULLTEXT/Like
+
+29. ✅ **Legal Observer** - إنشاء embedding تلقائياً عند حفظ أي قانون جديد
+30. ✅ **أمر Artisan لتعبئة embeddings** - `php artisan legal:backfill-embeddings` لإنشاء متجهات للقوانين القديمة
 
 ### الأولوية القصوى (High Priority):
 1. ✅ إصلاح PermissionSeeder (تصحيح الخطأ الإملائي وتوحيد الحارس)
