@@ -106,6 +106,8 @@ Route::post('contact-us', [ContactUsController::class, 'store']);
 Route::middleware(['auth:sanctum', 'role:admin'])->group(function () {
     Route::get('contact-us', [ContactUsController::class, 'index']);
     Route::get('contact-us/{id}', [ContactUsController::class, 'show']);
+    Route::put('contact-us/{id}', [ContactUsController::class, 'update']);
+    Route::patch('contact-us/{id}/close', [ContactUsController::class, 'close']);
     Route::delete('contact-us/{id}', [ContactUsController::class, 'destroy']);
 
 

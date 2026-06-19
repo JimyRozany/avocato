@@ -75,7 +75,7 @@ app/
 │   │   │   ├── LegalBotController.php      # 💬 شات بوت الاستفسارات القانونية
 │   │   │   ├── LawyerDocumentController.php # ⚡ شهادات وملفات المحامي (CRUD كامل مع رفع ملفات)
 │   │   │   ├── WarningHistoryController.php # ⚡ إنذارات المحامي (CRUD كامل مع ID تلقائي)
-│   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/حذف للمشرف)
+│   │   │   ├── ContactUsController.php     # ⚡ رسائل تواصل (إرسال عام + عرض/تحديث/إغلاق/حذف للمشرف)
 │   │   │   ├── ReviewController.php        # ⚡ التقييمات بين المحامي والعميل (CRUD)
 │   │   │   ├── RolePermissionController.php # ⚡ إدارة الأدوار والصلاحيات (admin only)
 │   │   │   └── CaseController_.php         # ❌ ملف قديم - غير مستخدم
@@ -256,6 +256,8 @@ tests/
 | email | string | البريد الإلكتروني |
 | mobile | string | رقم الجوال |
 | message | text | نص الرسالة |
+| status | string | الحالة (pending افتراضياً / closed) |
+| type | string (nullable) | نوع الرسالة (شكوى، استفسار، اقتراح، ...) |
 
 ### 12. Review (التقييمات) - `reviews`
 | الحقل | النوع | الوصف |
@@ -500,9 +502,11 @@ DELETE /api/warning-histories/{id}         - حذف إنذار
 GET    /api/warning-histories/lawyer/{lawyerId} - كل إنذارات محامٍ معين
 GET    /api/warning-histories/client/{clientId} - كل إنذارات عميل معين
 
-POST   /api/contact-us                     - إرسال رسالة تواصل (**عام**)
+POST   /api/contact-us                     - إرسال رسالة تواصل (**عام**) (type اختياري، status=pending تلقائياً)
 GET    /api/contact-us                     - عرض كل الرسائل (admin)
 GET    /api/contact-us/{id}                - عرض رسالة (admin)
+PUT    /api/contact-us/{id}                - تحديث رسالة (admin) (type, status)
+PATCH  /api/contact-us/{id}/close          - إغلاق رسالة (admin) (status ← closed)
 DELETE /api/contact-us/{id}                - حذف رسالة (admin)
 
 ```
@@ -641,7 +645,7 @@ php artisan test
 13. ✅ **قائمة المحامين عامة** - `GET /api/lawyers` أصبح بدون مصادقة + إضافة `image` للـ response
 14. ✅ **إحصائيات العملاء والمحامين** - `GET /api/clients/overview` و `GET /api/lawyers/statistics` تعيد total/active/pending/suspended
 15. ✅ **Force Close Case** - `PATCH /api/cases/{id}/force-close` لإغلاق القضية قسرياً (admin only)
-16. ✅ **Contact Us** - Model + Migration + Controller + Endpoints (إرسال عام، عرض/حذف للمشرف)
+16. ✅ **Contact Us** - Model + Migration + Controller + Endpoints (إرسال عام + type اختياري + status تلقائي pending + عرض/تحديث/إغلاق/حذف للمشرف)
 17. ✅ **Roles & Permissions Management** - Endpoints لجلب/إنشاء/تعديل/حذف الأدوار والصلاحيات (admin only)
 18. ✅ **Client + Lawyer in Case Response** - عرض معلومات العميل والمحامي داخل كل قضية عبر العلاقات `client()` و `lawyers()`
 19. ✅ **Upload Documents to Case** - `POST /api/cases/{id}/documents` لرفع مستندات لقضية بعد إنشائها
