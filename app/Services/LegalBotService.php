@@ -10,47 +10,79 @@ class LegalBotService
 {
     private const EMBEDDING_MODEL = 'text-embedding-3-small';
     private const CHAT_MODEL = 'gpt-4o-mini';
-    private const SIMILARITY_THRESHOLD = 0.1;
+    private const SIMILARITY_THRESHOLD = 0.45;
     private const MAX_TOKENS = 500;
     private const TEMPERATURE = 0.3;
     private const TOP_K = 3;
 
+    private array $stopWords = [
+        'ما', 'هو', 'هي', 'هل', 'كيف', 'لماذا', 'أين', 'متى', 'من', 'إلى',
+        'عن', 'على', 'في', 'مع', 'بين', 'كان', 'كانت', 'ليس', 'لا', 'لم',
+        'لن', 'إن', 'أن', 'قد', 'سوف', 'هذا', 'هذه', 'ذلك', 'تلك', 'هؤلاء',
+        'أو', 'و', 'ف', 'ب', 'ل', 'ثم', 'لكن', 'لقد', 'لأن', 'حتى', 'عند',
+        'عندما', 'إذا', 'كل', 'بعض', 'أي', 'اي', 'الذي', 'التي', 'الذين',
+        'به', 'بها', 'له', 'لها', 'لهم', 'عليه', 'عليها', 'منها', 'منه',
+        'فيه', 'فيها', 'الا', 'ألا', 'اذا', 'بين', 'دون', 'غير', 'حول',
+        'بعد', 'قبل', 'فوق', 'تحت', 'داخل', 'خارج', 'أمام', 'خلف',
+    ];
+
     public function ask(string $question): array
     {
-        $embedding = $this->embed($question);
+        $laws = $this->searchLaws($question);
 
-        $topLaws = $this->findSimilarLaws($embedding);
-
-        if (!empty($topLaws)) {
-            $context = $this->buildContext($topLaws);
+        if (!empty($laws)) {
+            $context = $this->buildContext($laws);
             $answer = $this->generateWithContext($question, $context);
 
-            return [
-                'answer' => $answer,
-                'matched_laws' => $topLaws,
-            ];
+            if (!$this->isInsufficientInfo($answer)) {
+                return [
+                    'answer' => $answer,
+                    'matched_laws' => $laws,
+                ];
+            }
         }
 
-        $answer = $this->generateGeneral($question);
-
         return [
-            'answer' => $answer,
+            'answer' => $this->generateGeneral($question),
             'matched_laws' => [],
         ];
     }
 
-    public function embed(string $text): array
+    private function searchLaws(string $question): array
     {
-        $response = OpenAI::embeddings()->create([
-            'model' => self::EMBEDDING_MODEL,
-            'input' => $text,
-        ]);
+        // 1. Semantic search via embedding similarity
+        $laws = $this->searchSemantic($question);
+        if (!empty($laws)) {
+            return $laws;
+        }
 
-        return $response->embeddings[0]->embedding;
+        // 2. FULLTEXT search on name + rule_description + full_text
+        $keywords = $this->tokenize($question);
+        if (!empty($keywords)) {
+            $laws = $this->searchFulltext($keywords);
+            if ($laws->isNotEmpty()) {
+                return $laws->all();
+            }
+
+            // 3. LIKE search as last resort
+            $laws = $this->searchLike($keywords);
+            if ($laws->isNotEmpty()) {
+                return $laws->all();
+            }
+        }
+
+        return [];
     }
 
-    public function findSimilarLaws(array $embedding): array
+    private function searchSemantic(string $question): array
     {
+        try {
+            $embedding = $this->embed($question);
+        } catch (\Exception $e) {
+            Log::warning('Semantic search unavailable, skipping: ' . $e->getMessage());
+            return [];
+        }
+
         $laws = Legal::whereNotNull('embedding')->get();
 
         if ($laws->isEmpty()) {
@@ -78,24 +110,70 @@ class LegalBotService
         return array_map(fn($item) => $item['law'], $top);
     }
 
-    public function buildContext(array $laws): string
+    private function embed(string $text): array
+    {
+        $response = OpenAI::embeddings()->create([
+            'model' => self::EMBEDDING_MODEL,
+            'input' => $text,
+        ]);
+
+        return $response->embeddings[0]->embedding;
+    }
+
+    private function tokenize(string $text): array
+    {
+        $normalized = str_replace(
+            ['أ', 'إ', 'آ', 'ة', 'ى', 'ؤ', 'ئ'],
+            ['ا', 'ا', 'ا', 'ه', 'ي', 'و', 'ي'],
+            $text
+        );
+
+        $words = preg_split('/[\s,،.؟?!\-\n\r]+/u', $normalized);
+
+        return array_values(array_unique(array_filter(array_map('trim', $words), function ($word) {
+            return mb_strlen($word) > 2 && !in_array($word, $this->stopWords);
+        })));
+    }
+
+    private function searchFulltext(array $keywords)
+    {
+        $query = implode(' ', array_map(fn($w) => "+{$w}*", $keywords));
+
+        return Legal::whereRaw(
+            "MATCH(name, rule_description, full_text) AGAINST(? IN BOOLEAN MODE)",
+            [$query]
+        )->get();
+    }
+
+    private function searchLike(array $keywords)
+    {
+        $query = Legal::query();
+        foreach ($keywords as $keyword) {
+            $query->orWhere('name', 'LIKE', "%{$keyword}%")
+                  ->orWhere('rule_description', 'LIKE', "%{$keyword}%")
+                  ->orWhere('full_text', 'LIKE', "%{$keyword}%");
+        }
+        return $query->get();
+    }
+
+    private function buildContext(array $laws): string
     {
         $context = '';
         foreach ($laws as $law) {
-            $text = $law->full_text ?? $law->name . "\n" . $law->rule_description;
-            $context .= "[{$law->name} ({$law->rule_number})]\n{$text}\n\n";
+            $text = $law->full_text ?? $law->rule_description ?? $law->name;
+            $context .= "[{$law->name} (مادة {$law->rule_number})]\n{$text}\n\n";
         }
         return $context;
     }
 
-    public function generateWithContext(string $question, string $context): string
+    private function generateWithContext(string $question, string $context): string
     {
         $response = OpenAI::chat()->create([
             'model' => self::CHAT_MODEL,
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => 'أنت مساعد قانوني متخصص في القانون المصري فقط. أجب عن سؤال المستخدم بناءً على القوانين المقدمة فقط. إذا لم تجد الإجابة في القوانين المقدمة، فقل "لا توجد معلومات كافية للإجابة على هذا السؤال في القوانين المسجلة." استشهد برقم القانون عند الإجابة. كن دقيقاً ومحايداً. ممنوع تماماً الإجابة عن أي سؤال غير قانوني أو خارج نطاق القانون المصري. إذا كان السؤال غير قانوني، قل "عذراً، أنا متخصص في الاستفسارات القانونية فقط."',
+                    'content' => 'أنت مساعد قانوني متخصص في القانون المصري فقط. أجب عن سؤال المستخدم بناءً على القوانين المقدمة فقط. إذا لم تجد الإجابة في القوانين المقدمة، فقل "لا توجد معلومات كافية للإجابة على هذا السؤال في القوانين المسجلة." استشهد برقم المادة عند الإجابة. كن دقيقاً ومحايداً. ممنوع تماماً الإجابة عن أي سؤال غير قانوني.',
                 ],
                 [
                     'role' => 'user',
@@ -109,14 +187,14 @@ class LegalBotService
         return $response->choices[0]->message->content;
     }
 
-    public function generateGeneral(string $question): string
+    private function generateGeneral(string $question): string
     {
         $response = OpenAI::chat()->create([
             'model' => self::CHAT_MODEL,
             'messages' => [
                 [
                     'role' => 'system',
-                    'content' => 'أنت مساعد قانوني متخصص في القانون المصري فقط. أجب بناءً على معرفتك بالقانون المصري. إذا كنت لا تعرف الإجابة بدقة، قل "عذراً، لا توجد معلومات كافية لدي للإجابة على هذا السؤال." وضح أن هذه المعلومات هي معلومات عامة للاسترشاد بها فقط وقد تحتاج إلى استشارة محامٍ متخصص. ممنوع تماماً الإجابة عن أي سؤال غير قانوني أو خارج نطاق القانون المصري. إذا كان السؤال غير قانوني، قل "عذراً، أنا متخصص في الاستفسارات القانونية فقط." كن دقيقاً ومحايداً.',
+                    'content' => 'أنت مساعد قانوني متخصص في القانون المصري فقط. أجب بناءً على معرفتك بالقانون المصري. وضح أن هذه معلومات عامة للاسترشاد وقد تحتاج لاستشارة محامٍ متخصص. إذا كان السؤال غير قانوني، قل "عذراً، أنا متخصص في الاستفسارات القانونية فقط."',
                 ],
                 [
                     'role' => 'user',
@@ -145,5 +223,24 @@ class LegalBotService
         $denom = sqrt($normA) * sqrt($normB);
 
         return $denom === 0.0 ? 0.0 : $dot / $denom;
+    }
+
+    private function isInsufficientInfo(string $answer): bool
+    {
+        $indicators = [
+            'لا توجد معلومات كافية',
+            'غير موجود',
+            'لا تتوفر معلومات',
+            'ليست لدي معلومات',
+            'لا يمكنني الإجابة',
+        ];
+
+        foreach ($indicators as $indicator) {
+            if (str_contains($answer, $indicator)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

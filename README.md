@@ -83,7 +83,7 @@ app/
 │   ├── Requests/
 │   │   └── StoreCaseRequest.php            # ✅ قواعد التحقق الوحيدة (لإنشاء القضايا)
 │   └── Services/
-│       └── LegalBotService.php             # 💬 منطق RAG (embedding, similarity, GPT)```
+│       └── LegalBotService.php             # 💬 محرك بحث هجين (semantic → fulltext → like → GPT)```
 ├── Models/
 │   ├── User.php                            # نموذج المستخدم (مع صلاحيات Sanctum)
 │   ├── CaseModel.php                       # نموذج القضية
@@ -663,8 +663,7 @@ php artisan test
 25. ✅ **Lawyer Clients** - `GET /api/lawyers/{id}/clients` يعيد جميع عملاء محامٍ معين
 26. ✅ **Sessions by Case** - `GET /api/case-sessions/case/{caseId}` يعيد جميع جلسات قضية معينة
 27. ✅ **Change Case Status** - `PATCH /api/cases/{id}/status` تغيير حالة القضية مع التحقق من القيم المسموحة
-28. ✅ **💬 شات بوت الاستفسارات القانونية (RAG)** - `POST /api/legal-bot/ask` بحث دلالي بـ OpenAI Embeddings + إجابة بـ GPT-4o-mini + fallback إلى FULLTEXT/Like
-
+28. ✅ **💬 شات بوت الاستفسارات القانونية (RAG + Hybrid Search)** - `POST /api/legal-bot/ask` بحث هجين: semantic (OpenAI Embeddings) ← FULLTEXT ← LIKE ← GPT knowledge, مع graceful degradation
 29. ✅ **Legal Observer** - إنشاء embedding تلقائياً عند حفظ أي قانون جديد
 30. ✅ **أمر Artisan لتعبئة embeddings** - `php artisan legal:backfill-embeddings` لإنشاء متجهات للقوانين القديمة
 
